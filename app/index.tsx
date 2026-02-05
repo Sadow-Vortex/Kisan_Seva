@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
-import 'react-native-reanimated';
 import { ActivityIndicator, View, Text } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
-import LoginScreen from "@/app/LoginScreen";
 
 export default function Index() {
     const [checking, setChecking] = useState(true);
@@ -11,13 +9,16 @@ export default function Index() {
     useEffect(() => {
         const checkLogin = async () => {
             const value = await AsyncStorage.getItem("isLogin");
+
             if (value === "true") {
-                router.replace("/Home"); // redirects to app/home.tsx
+                router.replace("/Home");
             } else {
-                router.replace("/LoginScreen"); // redirects to app/login.tsx
+                router.replace("/LoginScreen");
             }
+
             setChecking(false);
         };
+
         checkLogin();
     }, []);
 

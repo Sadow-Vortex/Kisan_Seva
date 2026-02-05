@@ -10,20 +10,20 @@ import { useRoute, useNavigation } from "@react-navigation/native";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
-import { useFocusEffect } from '@react-navigation/native';
 
 const Advertisement = () => {
+
     const scrollRef = useRef();
     const route = useRoute();
     const navigation = useNavigation();
     const { userId, subCategoryId } = route.params || {};
-    const [locationHandled, setLocationHandled] = useState(false);
+
     const [categories, setCategories] = useState([]);
     const [subcategories, setSubcategories] = useState([]);
-    const url = "http://10.0.167.11:2001";
-    const urll = "http://10.0.167.11:2012";
-    const [uploading, setUploading] = useState(false);
+    const url = "http://10.178.147.199:2001";
+    const urll = "http://10.178.147.199:2012";
 
+    const [uploading, setUploading] = useState(false);
 
     const [formData, setFormData] = useState({
         adv_CategoryID: '',
@@ -56,7 +56,7 @@ const Advertisement = () => {
 
     useEffect(() => {
         if (formData.adv_CategoryID) {
-            axios.get(`${url}/api/subcategories/by-category/${formData.adv_CategoryID}`)
+            axios.get(`${url}/subcategory/by-category/${formData.adv_CategoryID}`)
                 .then(response => {
                     const subArray = Array.isArray(response.data)
                         ? response.data
@@ -67,60 +67,11 @@ const Advertisement = () => {
         }
     }, [formData.adv_CategoryID]);
 
-    useFocusEffect(
-        React.useCallback(() => {
-            if (route.params?.selectedLocation && !locationHandled.current) {
-                const { latitude, longitude } = route.params.selectedLocation;
-
-                (async () => {
-                    try {
-                        const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
-                        let addressString = 'Unknown location';
-                        if (geocode.length > 0) {
-                            const place = geocode[0];
-                            addressString = [
-                                place.name,
-                                place.street,
-                                place.city || place.subregion,
-                                place.region,
-                                place.postalCode,
-                                place.country,
-                            ].filter(Boolean).join(', ');
-                        }
-
-                        setFormData(prev => ({
-                            ...prev,
-                            adv_Latitude: latitude,
-                            adv_Longitude: longitude,
-                            adv_Address: addressString,
-                        }));
-                    } catch (error) {
-                        console.error('Reverse geocoding failed:', error);
-                        setFormData(prev => ({
-                            ...prev,
-                            adv_Latitude: latitude,
-                            adv_Longitude: longitude,
-                            adv_Address: `Lat: ${latitude.toFixed(4)}, Lon: ${longitude.toFixed(4)}`,
-                        }));
-                    }
-                    locationHandled.current = true;
-                })();
-            }
-        }, [route.params?.selectedLocation])
-    );
-
-    const handleLocationSelect = () => {
-        navigation.navigate('Map', {
-            onLocationSelected: (location) => {
-                reverseGeocodeAndSetLocation(location);
-            },
-        });
-    };
-
     const reverseGeocodeAndSetLocation = async ({ latitude, longitude }) => {
         try {
             const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
             let addressString = 'Unknown location';
+
             if (geocode.length > 0) {
                 const place = geocode[0];
                 addressString = [
@@ -141,7 +92,22 @@ const Advertisement = () => {
             }));
         } catch (error) {
             console.error("Reverse geocoding failed:", error);
+
+            setFormData(prev => ({
+                ...prev,
+                adv_Latitude: latitude,
+                adv_Longitude: longitude,
+                adv_Address: `Lat: ${latitude.toFixed(4)}, Lon: ${longitude.toFixed(4)}`
+            }));
         }
+    };
+
+    const handleLocationSelect = () => {
+        navigation.navigate('Map', {
+            onLocationSelected: async (coords) => {
+                await reverseGeocodeAndSetLocation(coords);
+            }
+        });
     };
 
     const PickImage = async () => {
@@ -171,20 +137,25 @@ const Advertisement = () => {
             });
 
             try {
-                setUploading(true); // optional: show loading indicator
+                setUploading(true);
+
                 const response = await axios.post(`${urll}/adv/upload`, formDataImage, {
                     headers: {
                         'Content-Type': 'multipart/form-data',
                     },
                 });
 
-                const imageUrl = response.data?.url;
-                if (imageUrl) {
-                    setFormData(prev => ({ ...prev, adv_Image: imageUrl }));
-                    console.log("✅ Uploaded Image URL:", imageUrl);
+                const filename = response.data?.filename;
+
+                if (filename) {
+                    setFormData(prev => ({
+                        ...prev,
+                        adv_Image: filename
+                    }));
                 } else {
                     Alert.alert('Upload Failed', 'No URL returned from server.');
                 }
+
             } catch (error) {
                 console.error('❌ Image upload failed:', error);
                 Alert.alert('Upload Error', 'Failed to upload image. Try again.');
@@ -211,7 +182,6 @@ const Advertisement = () => {
         if (!finalUserId || finalUserId === 0 || isNaN(finalUserId)) {
             try {
                 const storedUser = await AsyncStorage.getItem('user');
-                console.log("📦 Stored user from AsyncStorage:", storedUser);
                 const parsed = storedUser ? JSON.parse(storedUser) : null;
                 finalUserId = parsed?.id;
 
@@ -220,12 +190,10 @@ const Advertisement = () => {
                     return;
                 }
             } catch (err) {
-                console.warn("❌ Failed to retrieve user from AsyncStorage:", err);
                 Alert.alert("Error", "Login session invalid. Please log in again.");
                 return;
             }
         }
-
 
         const payload = {
             advUserID: parseInt(finalUserId),
@@ -247,7 +215,9 @@ const Advertisement = () => {
 
         axios.post(`${urll}/adv`, payload)
             .then(() => {
+
                 Alert.alert('Success', 'Advertisement posted successfully');
+
                 scrollRef.current?.scrollTo({ y: 0, animated: true });
 
                 setFormData(prev => ({
@@ -275,109 +245,162 @@ const Advertisement = () => {
             });
     };
 
-
-
     return (
         <View style={styles.fullContainer}>
-            <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContainer}>
-                <Text style={styles.label}>Category <Text style={{ color: 'red' }}>*</Text></Text>
-                <RNPickerSelect
-                    onValueChange={value => setFormData(prev => ({ ...prev, adv_CategoryID: value }))}
-                    items={categories.map(c => ({
-                        key: c.categoryId.toString(),
-                        label: c.categoryName,
-                        value: c.categoryId
-                    }))}
-                    value={formData.adv_CategoryID}
-                    placeholder={{ label: "Select Category", value: null }}
-                />
 
-                {!subCategoryId && (
-                    <>
-                        <Text style={styles.label}>Subcategory <Text style={{ color: 'red' }}>*</Text></Text>
-                        <RNPickerSelect
-                            onValueChange={value =>
-                                setFormData(prev => ({ ...prev, adv_subCategoryID: value }))
-                            }
-                            items={subcategories.map(s => ({
-                                key: s.subCategory_Id.toString(),
-                                label: s.subCategory_Name,
-                                value: s.subCategory_Id
-                            }))}
-                            value={formData.adv_subCategoryID}
-                            placeholder={{ label: "Select Subcategory", value: null }}
-                        />
-                    </>
-                )}
+            <ScrollView
+                ref={scrollRef}
+                contentContainerStyle={styles.scrollContainer}
+            >
 
-                <Text style={styles.label}>Title <Text style={{ color: 'red' }}>*</Text></Text>
-                <TextInput
-                    style={styles.input}
-                    value={formData.adv_Title}
-                    onChangeText={text => setFormData(prev => ({ ...prev, adv_Title: text }))}
-                />
+                <View style={styles.card}>
 
-                <Text style={styles.label}>Description</Text>
-                <TextInput
-                    style={[styles.input, { height: 80 }]}
-                    value={formData.adv_Description}
-                    onChangeText={text => setFormData(prev => ({ ...prev, adv_Description: text }))}
-                    multiline
-                />
+                    <View style={styles.row2}>
 
-                <Text style={styles.label}>Unit <Text style={{ color: 'red' }}>*</Text></Text>
-                <TextInput
-                    style={styles.input}
-                    value={formData.adv_Unit}
-                    onChangeText={text => setFormData(prev => ({ ...prev, adv_Unit: text }))}
-                    keyboardType="numeric"
-                />
+                        <View style={styles.col}>
+                            <Text style={styles.label}>Category *</Text>
+                            <View style={styles.inputBox}>
+                                <RNPickerSelect
+                                    onValueChange={value =>
+                                        setFormData(prev => ({ ...prev, adv_CategoryID: value }))
+                                    }
+                                    items={categories
+                                        .filter(c => c?.categoryId != null)
+                                        .map(c => ({
+                                            key: String(c.categoryId),
+                                            label: String(c.categoryName ?? ''),
+                                            value: c.categoryId
+                                        }))}
+                                    value={formData.adv_CategoryID}
+                                    placeholder={{ label: "Select Category", value: null }}
+                                />
+                            </View>
+                        </View>
 
-                <Text style={styles.label}>Price <Text style={{ color: 'red' }}>*</Text></Text>
-                <TextInput
-                    style={styles.input}
-                    value={formData.adv_Price}
-                    onChangeText={text => setFormData(prev => ({ ...prev, adv_Price: text }))}
-                    keyboardType="numeric"
-                />
+                        {!subCategoryId && (
+                            <View style={styles.col}>
+                                <Text style={styles.label}>Subcategory *</Text>
+                                <View style={styles.inputBox}>
+                                    <RNPickerSelect
+                                        onValueChange={value =>
+                                            setFormData(prev => ({ ...prev, adv_subCategoryID: value }))
+                                        }
+                                        items={subcategories
+                                            .filter(s => s?.subCategoryId != null)
+                                            .map(s => ({
+                                                key: String(s.subCategoryId),
+                                                label: String(s.subCategoryName ?? ''),
+                                                value: s.subCategoryId
+                                            }))}
+                                        value={formData.adv_subCategoryID}
+                                        placeholder={{ label: "Select Subcategory", value: null }}
+                                    />
+                                </View>
+                            </View>
+                        )}
 
-                <Text style={styles.label}>Address</Text>
-                <View style={styles.inputWithIcon}>
+                    </View>
+
+                    <Text style={styles.label}>Title *</Text>
                     <TextInput
-                        style={styles.inputFlex}
-                        value={formData.adv_Address}
-                        onChangeText={text => setFormData(prev => ({ ...prev, adv_Address: text }))}
-                        placeholder="Enter address or select from map"
+                        style={styles.input}
+                        value={formData.adv_Title}
+                        onChangeText={text => setFormData(prev => ({ ...prev, adv_Title: text }))}
+                        placeholder="Title"
                     />
-                    <TouchableOpacity onPress={handleLocationSelect}>
-                        <Icon name="location-on" size={24} color="#007bff" />
+
+                    <Text style={styles.label}>Description</Text>
+                    <TextInput
+                        style={[styles.input, styles.textArea]}
+                        value={formData.adv_Description}
+                        onChangeText={text => setFormData(prev => ({ ...prev, adv_Description: text }))}
+                        placeholder="Description"
+                        multiline
+                    />
+
+                    <View style={styles.row2}>
+
+                        <View style={styles.col}>
+                            <Text style={styles.label}>Unit *</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={formData.adv_Unit}
+                                onChangeText={text => setFormData(prev => ({ ...prev, adv_Unit: text }))}
+                                keyboardType="numeric"
+                                placeholder="Unit"
+                            />
+                        </View>
+
+                        <View style={styles.col}>
+                            <Text style={styles.label}>Price *</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={formData.adv_Price}
+                                onChangeText={text => setFormData(prev => ({ ...prev, adv_Price: text }))}
+                                keyboardType="numeric"
+                                placeholder="₹ Price"
+                            />
+                        </View>
+
+                    </View>
+
+                    <Text style={styles.label}>Address</Text>
+                    <View style={styles.inputWithIcon}>
+                        <TextInput
+                            style={styles.inputFlex}
+                            value={formData.adv_Address}
+                            onChangeText={text => setFormData(prev => ({ ...prev, adv_Address: text }))}
+                            placeholder="Enter address or select from map"
+                        />
+                        <TouchableOpacity onPress={handleLocationSelect}>
+                            <Icon name="location-on" size={24} color="#2563eb" />
+                        </TouchableOpacity>
+                    </View>
+
+                    {formData.adv_Latitude !== null && formData.adv_Longitude !== null && (
+                        <View style={styles.locationPill}>
+                            <Text style={styles.locationText}>
+                                Selected Location: Lat: {formData.adv_Latitude.toFixed(4)}, Lon: {formData.adv_Longitude.toFixed(4)}
+                            </Text>
+                        </View>
+                    )}
+
+                    <Text style={styles.label}>Select Image</Text>
+
+                    <TouchableOpacity
+                        onPress={PickImage}
+                        style={styles.chooseBtn}
+                        disabled={uploading}
+                    >
+                        <Text style={styles.chooseText}>
+                            {uploading ? "Uploading..." : "Choose Image"}
+                        </Text>
                     </TouchableOpacity>
+
+                    {formData.adv_Image && (
+                        <Image
+                            source={{ uri: `${urll}/uploads/` + formData.adv_Image }}
+                            style={styles.previewImage}
+                        />
+                    )}
+
+                    <View style={styles.switchRow}>
+                        <Text style={styles.label}>Status (Active)</Text>
+                        <Switch
+                            value={formData.adv_Status}
+                            onValueChange={val => setFormData(prev => ({ ...prev, adv_Status: val }))}
+                        />
+                    </View>
+
                 </View>
 
-
-                {formData.adv_Latitude && formData.adv_Longitude && (
-                    <Text style={styles.selectedLocationText}>
-                        Selected Location: Lat: {formData.adv_Latitude.toFixed(4)}, Lon: {formData.adv_Longitude.toFixed(4)}
-                    </Text>
-                )}
-
-                <Text style={styles.label}>Select Image</Text>
-                <TouchableOpacity onPress={PickImage} style={styles.button}>
-                    <Text style={{ color: 'blue' }}>Choose Image</Text>
+                <TouchableOpacity
+                    style={styles.submitBtn}
+                    onPress={handleSubmit}
+                >
+                    <Text style={styles.submitText}>Post Advertisement</Text>
                 </TouchableOpacity>
-                {formData.adv_Image && (
-                    <Image source={{ uri: formData.adv_Image }} style={{ width: 100, height: 100, marginTop: 10 }} />
-                )}
 
-                <View style={styles.switchContainer}>
-                    <Text style={styles.label}>Status (Active)</Text>
-                    <Switch
-                        value={formData.adv_Status}
-                        onValueChange={val => setFormData(prev => ({ ...prev, adv_Status: val }))}
-                    />
-                </View>
-
-                <Button title="Post Advertisement" onPress={handleSubmit} />
             </ScrollView>
 
         </View>
@@ -385,37 +408,145 @@ const Advertisement = () => {
 };
 
 const styles = StyleSheet.create({
-    fullContainer: { flex: 1 },
-    scrollContainer: { padding: 20, paddingBottom: 100 },
+
+    fullContainer: {
+        flex: 1,
+        backgroundColor: "#FCEFE4"
+    },
+
+    scrollContainer: {
+        padding: 16,
+        paddingBottom: 120
+    },
+
+    card: {
+        backgroundColor: "#fff",
+        borderRadius: 22,
+        padding: 16,
+
+        marginTop: 100,
+
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.12,
+        shadowRadius: 14,
+        elevation: 8
+    },
+
+    row2: {
+        flexDirection: "row",
+        gap: 10
+    },
+
+    col: {
+        flex: 1
+    },
+
+    label: {
+        fontSize: 13,
+        fontWeight: "700",
+        color: "#374151",
+        marginBottom: 6
+    },
+
+    inputBox: {
+        borderWidth: 1,
+        borderColor: "#e5e7eb",
+        borderRadius: 14,
+        paddingHorizontal: 10,
+        backgroundColor: "#fafafa",
+        marginBottom: 14
+    },
+
     input: {
-        borderWidth: 1, borderColor: '#ccc', borderRadius: 5,
-        padding: 8, marginBottom: 15,
+        borderWidth: 1,
+        borderColor: "#e5e7eb",
+        borderRadius: 14,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        backgroundColor: "#fafafa",
+        marginBottom: 14
     },
-    label: { fontWeight: 'bold', marginBottom: 5 },
-    switchContainer: { flexDirection: 'row', alignItems: 'center', marginVertical: 15 },
-    locationButton: {
-        position: 'absolute', top: Dimensions.get('window').height * 0.05, right: 20,
-        backgroundColor: '#007bff', borderRadius: 30, width: 60, height: 60,
-        justifyContent: 'center', alignItems: 'center', elevation: 5,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25, shadowRadius: 3.84, zIndex: 10,
+
+    textArea: {
+        height: 90,
+        textAlignVertical: "top"
     },
+
     inputWithIcon: {
         flexDirection: 'row',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: '#ccc',
-        borderRadius: 5,
-        paddingHorizontal: 10,
-        marginBottom: 15,
-        backgroundColor: '#fff',
+        borderColor: '#e5e7eb',
+        borderRadius: 14,
+        paddingHorizontal: 12,
+        marginBottom: 10,
+        backgroundColor: '#fafafa',
         justifyContent: 'space-between',
     },
-    inputFlex: { flex: 1, paddingVertical: 8, fontSize: 16 },
-    icon: { marginRight: 8 },
-    selectedLocationText: {
-        marginTop: -10, marginBottom: 10, fontSize: 12, color: 'gray',
+
+    inputFlex: {
+        flex: 1,
+        paddingVertical: 10,
+        fontSize: 14
+    },
+
+    locationPill: {
+        alignSelf: "flex-start",
+        backgroundColor: "#f1f5f9",
+        borderRadius: 20,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        marginBottom: 14
+    },
+
+    locationText: {
+        fontSize: 12,
+        color: "#475569"
+    },
+
+    chooseBtn: {
+        borderWidth: 1,
+        borderColor: "#d1d5db",
+        borderRadius: 14,
+        paddingVertical: 12,
+        alignItems: "center",
+        marginBottom: 12
+    },
+
+    chooseText: {
+        color: "#2563eb",
+        fontWeight: "700"
+    },
+
+    previewImage: {
+        width: "100%",
+        height: 220,
+        borderRadius: 16,
+        marginBottom: 14
+    },
+
+    switchRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginTop: 4
+    },
+
+    submitBtn: {
+        marginTop: 20,
+        backgroundColor: "#6b7f3f",
+        paddingVertical: 16,
+        borderRadius: 18,
+        alignItems: "center"
+    },
+
+    submitText: {
+        color: "#ffffff",
+        fontSize: 16,
+        fontWeight: "800"
     }
+
 });
 
 export default Advertisement;

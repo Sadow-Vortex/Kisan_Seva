@@ -16,8 +16,8 @@ const UpdateAdvertisement = () => {
     const route = useRoute();
     const { adData } = route.params;
 
-    const url = "http://10.0.167.11:2001";
-    const urll = "http://10.0.167.11:2012";
+    const url = "http://10.178.147.199:2001";
+    const urll = "http://10.178.147.199:2012";
     const [categories, setCategories] = useState([]);
     const [subcategories, setSubcategories] = useState([]);
 
@@ -49,7 +49,7 @@ const UpdateAdvertisement = () => {
 
     useEffect(() => {
         if (formData.adv_CategoryID) {
-            axios.get(`${url}/api/subcategories/by-category/${formData.adv_CategoryID}`)
+            axios.get(`${url}/subcategory/by-category/${formData.adv_CategoryID}`)
                 .then(response => {
                     setSubcategories(response.data?.data || []);
                 })

@@ -1,38 +1,107 @@
-import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import React from "react";
+import {
+    View,
+    TouchableOpacity,
+    StyleSheet,
+    Image
+} from "react-native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 
 export default function Footer() {
+
     const navigation = useNavigation();
+    const route = useRoute();
+
+    const isActive = (name) => route.name === name;
 
     return (
         <View style={styles.footer}>
-            <TouchableOpacity onPress={() => navigation.navigate('Home')}>
-                <Ionicons name="home-outline" size={28} color="#333" />
+
+            {/* Home / Category */}
+            <TouchableOpacity onPress={() => navigation.navigate("Home")}>
+                <Image
+                    source={require("../assets/images/home-agreement.png")}
+                    style={[
+                        styles.icon,
+                        isActive("Home") && styles.activeIcon
+                    ]}
+                />
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => navigation.navigate('UserProfile')}>
-                <Ionicons name="person-circle-outline" size={28} color="#333" />
+            {/* Popular */}
+            <TouchableOpacity onPress={() => navigation.navigate("Popular")}>
+                <Image
+                    source={require("../assets/images/fire.png")}
+                    style={[
+                        styles.icon,
+                        isActive("Popular") && styles.activeIcon
+                    ]}
+                />
             </TouchableOpacity>
+
+            {/* Fresh */}
+            <TouchableOpacity onPress={() => navigation.navigate("Fresh")}>
+                <Image
+                    source={require("../assets/images/fresh.png")}
+                    style={[
+                        styles.icon,
+                        isActive("Fresh") && styles.activeIcon
+                    ]}
+                />
+            </TouchableOpacity>
+
+            {/* Nearby */}
+            <TouchableOpacity onPress={() => navigation.navigate("Nearby")}>
+                <Image
+                    source={require("../assets/images/location.png")}
+                    style={[
+                        styles.icon,
+                        isActive("Nearby") && styles.activeIcon
+                    ]}
+                />
+            </TouchableOpacity>
+
+            {/* Profile */}
+            <TouchableOpacity onPress={() => navigation.navigate("UserProfile")}>
+                <Image
+                    source={require("../assets/images/user.png")}
+                    style={[
+                        styles.icon,
+                        isActive("UserProfile") && styles.activeIcon
+                    ]}
+                />
+            </TouchableOpacity>
+
         </View>
     );
 }
 
 const styles = StyleSheet.create({
+
     footer: {
-        position: 'absolute',
+        position: "absolute",
         bottom: 0,
         left: 0,
         right: 0,
-        height: 60,
-        backgroundColor: '#fff',
-        borderTopWidth: 1,
-        borderTopColor: '#ddd',
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        alignItems: 'center',
+        height: 64,
+        backgroundColor: "#000",
+        flexDirection: "row",
+        justifyContent: "space-around",
+        alignItems: "center",
         paddingHorizontal: 20,
-        zIndex: 10,
+        zIndex: 10
     },
+
+    icon: {
+        width: 26,
+        height: 26,
+        tintColor: "#ffffff",
+        opacity: 0.5
+    },
+
+    activeIcon: {
+        tintColor: "#22c55e",
+        opacity: 1
+    }
+
 });

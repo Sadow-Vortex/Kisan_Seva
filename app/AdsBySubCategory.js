@@ -19,8 +19,8 @@ export default function AdsBySubCategory() {
     const [selectedAd, setSelectedAd] = useState(null);
     const [modalVisible, setModalVisible] = useState(false);
 
-    const url = `http://10.0.167.11:2012`;
-    const userUrl = `http://10.0.167.11:1012`;
+    const url = `http://10.178.147.199:2012`;
+    const userUrl = `http://10.178.147.199:1012`;
 
     useLayoutEffect(() => {
         navigation.setOptions({ headerShown: false });
@@ -39,7 +39,7 @@ export default function AdsBySubCategory() {
 
     const fetchUsers = async () => {
         try {
-            const response = await axios.get(`${userUrl}/users`);
+            const response = await axios.get(`${userUrl}/api/users`);
             setUsers(Array.isArray(response.data.data) ? response.data.data : []);
         } catch (error) {
             console.error("Failed to fetch users:", error);
@@ -94,8 +94,8 @@ export default function AdsBySubCategory() {
 
     const renderItem = ({ item }) => (
         <TouchableOpacity onPress={() => openModal(item)} style={styles.card}>
-            {item.adv_Image ? (
-                <Image source={{ uri: item.adv_Image }} style={styles.image} />
+            {item.adv_ImageLink ? (
+                <Image source={{ uri: item.adv_ImageLink }} style={styles.image} />
             ) : (
                 <View style={styles.imagePlaceholder}><Text>No Image</Text></View>
             )}
@@ -137,8 +137,8 @@ export default function AdsBySubCategory() {
                                     <Ionicons name="close" size={24} color="#000" />
                                 </TouchableOpacity>
 
-                                {selectedAd.adv_Image ? (
-                                    <Image source={{ uri: selectedAd.adv_Image }} style={styles.modalImage} />
+                                {selectedAd.adv_ImageLink ? (
+                                    <Image source={{ uri: selectedAd.adv_ImageLink }} style={styles.modalImage} />
                                 ) : (
                                     <View style={styles.imagePlaceholder}><Text>No Image</Text></View>
                                 )}

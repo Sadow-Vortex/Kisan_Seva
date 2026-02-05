@@ -9,7 +9,7 @@ export default function EditProfile() {
     const [userData, setUserData] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    const API_BASE_URL = 'http://10.0.167.11:1012/users';
+    const API_BASE_URL = 'http://10.178.147.199:1012/api/users';
 
     useEffect(() => {
         if (userId) {
@@ -50,7 +50,7 @@ export default function EditProfile() {
                 phoneNumber: userData.phoneNumber,
             };
 
-            const response = await fetch(`${API_BASE_URL}/${userId}`, {
+            const response = await fetch(`${API_BASE_URL}/update/${userId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),

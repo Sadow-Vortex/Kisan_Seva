@@ -1,84 +1,94 @@
 import React, { useEffect, useState, useLayoutEffect } from "react";
 import {
-    View, Image, FlatList, StyleSheet, Dimensions,
-    ActivityIndicator, Text, TouchableOpacity, Modal, Alert, Linking
+    View,
+    Image,
+    FlatList,
+    StyleSheet,
+    Dimensions,
+    ActivityIndicator,
+    Text,
+    TouchableOpacity,
+    Alert,
+    Linking,
+    TextInput,
 } from "react-native";
 import { useNavigation } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from "@expo/vector-icons";
+import * as Location from "expo-location";
 import Footer from "./Footer";
+import { ImageBackground } from "react-native";
+import * as Font from "expo-font";
 
-const { width } = Dimensions.get("window");
+
+const { width, height } = Dimensions.get("window");
 
 export default function HomeScreen() {
+
     const navigation = useNavigation();
+
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [users, setUsers] = useState([]);
-    const [usersLoaded, setUsersLoaded] = useState(false);
-    const [popularAds, setPopularAds] = useState([]);
-    const [RecentAds, setRecentAds] = useState([]);
-    const [modalVisible, setModalVisible] = useState(false);
-    const [selectedAd, setSelectedAd] = useState(null);
 
-    const url = `http://10.0.167.11:2001`;
-    const urll = `http://10.0.167.11:2012`;
-    const userUrl = `http://10.0.167.11:1012`;
+    const [activeTab, setActiveTab] = useState("category");
+
+    const [searchText, setSearchText] = useState("");
+    const [suggestions, setSuggestions] = useState([]);
+    const [showSuggestion, setShowSuggestion] = useState(false);
+
+    const [weather, setWeather] = useState(null);
+    const [weatherLoading, setWeatherLoading] = useState(true);
+    const [fontsLoaded, setFontsLoaded] = useState(false);
+
+    useEffect(() => {
+        Font.loadAsync({
+            PoppinsSemi: require("../assets/fonts/Poppins-SemiBold.ttf"),
+            PoppinsRegular: require("../assets/fonts/Poppins-Regular.ttf"),
+        }).then(() => setFontsLoaded(true));
+    }, []);
+
+
+    const url = "http://10.178.147.199:2001";
 
     useLayoutEffect(() => {
         navigation.setOptions({ headerShown: false });
     }, [navigation]);
 
     useEffect(() => {
-        fetchUsers();
         fetchCategories();
-        fetchPopularAds();
-        fetchRecentAds();
-
+        fetchWeather();
     }, []);
 
-    const fetchUsers = async () => {
+    // ---------------- WEATHER ----------------
+
+    const fetchWeather = async () => {
         try {
-            const response = await fetch(`${urll}/users`);
-            const data = await response.json();
-            const userArray = Array.isArray(data.data) ? data.data : [];
-            setUsers(userArray);
-            setUsersLoaded(true);
-        } catch (error) {
-            console.error("Error fetching users:", error);
-            setUsersLoaded(false);
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== "granted") {
+                setWeatherLoading(false);
+                return;
+            }
+
+            const loc = await Location.getCurrentPositionAsync({});
+            const lat = loc.coords.latitude;
+            const lon = loc.coords.longitude;
+
+            const API_KEY = "32bea71aad47a04557f738d027a4c1de";
+
+            const res = await fetch(
+                `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`
+            );
+
+            const json = await res.json();
+            setWeather(json);
+
+        } catch (e) {
+            console.log("Weather error:", e);
+        } finally {
+            setWeatherLoading(false);
         }
     };
 
-    const fetchPopularAds = async () => {
-        try {
-            const response = await fetch(`${urll}/adv`);
-            const data = await response.json();
-            const ads = Array.isArray(data.data) ? data.data : [];
-            const sortedAds = ads
-                .filter(ad => ad.adv_Status === true)
-                .sort((a, b) => b.count - a.count)
-                .slice(0, 5);
-            setPopularAds(sortedAds);
-        } catch (error) {
-            console.error("Error fetching popular ads:");
-        }
-    };
-
-    const fetchRecentAds = async () => {
-        try {
-            const response = await fetch(`${urll}/adv`);
-            const data = await response.json();
-            const ads = Array.isArray(data.data) ? data.data : [];
-            const sortedAds = ads
-                .filter(ad => ad.adv_Status === true)
-                .sort((a, b) => new Date(b.adv_Date) - new Date(a.adv_Date))
-                .slice(0, 5);
-            setRecentAds(sortedAds);
-        } catch (error) {
-            console.error("Error fetching recent ads:", error);
-        }
-    };
 
     const fetchCategories = async () => {
         try {
@@ -93,415 +103,557 @@ export default function HomeScreen() {
         }
     };
 
-    const openModal = async (ad) => {
-        try {
-            const storedUser = await AsyncStorage.getItem('user');
-            const viewerId = storedUser ? JSON.parse(storedUser)?.id : null;
 
-            if (!viewerId) {
-                Alert.alert("Login Error", "Please log in to view this ad.");
-                return;
-            }
+    const handleSearchInput = async (text) => {
 
-            if (users.length === 0) {
-                const userRes = await fetch(`${userUrl}/users`);
-                const userData = await userRes.json();
-                const userArray = Array.isArray(userData.data) ? userData.data : [];
-                setUsers(userArray);
+        setSearchText(text);
 
-                const response = await fetch(`${urll}/adv/${ad.adv_id}?viewerId=${viewerId}`);
-                const result = await response.json();
-                const updatedAd = result?.data;
-
-                const farmer = userArray.find(user => user.id === updatedAd.advUserID);
-                setSelectedAd({ ...updatedAd, farmer });
-                setModalVisible(true);
-            } else {
-                const response = await fetch(`${urll}/adv/${ad.adv_id}?viewerId=${viewerId}`);
-                const result = await response.json();
-                const updatedAd = result?.data;
-
-                const farmer = users.find(user => user.id === updatedAd.advUserID);
-                setSelectedAd({ ...updatedAd, farmer });
-                setModalVisible(true);
-            }
-        } catch (error) {
-            console.error("Failed to open ad modal:", error);
-            Alert.alert("Error", "Failed to load ad. Try again.");
+        if (!text || text.length < 2) {
+            setSuggestions([]);
+            setShowSuggestion(false);
+            return;
         }
-    };
 
-
-    const closeModal = () => {
-        setModalVisible(false);
-        setSelectedAd(null);
-    };
-
-    const openDialer = (number) => {
-        Linking.openURL(`tel:${number}`);
-    };
-
-    const openMap = (lat, lng) => {
-        const url = `https://www.google.com/maps?q=${lat},${lng}`;
-        Linking.openURL(url);
-    };
-
-    const bannerItems = [
-        { image: "https://i.pinimg.com/736x/d5/ad/c1/d5adc1d3ba0ee46ccca8b2e0850796c9.jpg" },
-        { image: "https://i.pinimg.com/736x/01/79/d6/0179d67a34789b7c046598512658013f.jpg" },
-        { image: "https://i.pinimg.com/736x/7b/e1/69/7be169497d66bc6b2335885ac84a79bf.jpg" }
-    ];
-
-    const renderBannerItem = ({ item }) => (
-        <View style={styles.slide}>
-            <Image source={{ uri: item.image }} style={styles.bannerImage} resizeMode="cover" />
-        </View>
-    );
-
-    const handleAddPress = async () => {
         try {
-            const userData = await AsyncStorage.getItem('user');
-            if (!userData) {
-                console.warn("No user data found in AsyncStorage.");
-                return;
-            }
 
-            const parsedUser = JSON.parse(userData);
-            if (parsedUser?.id) {
-                navigation.navigate("Advertisement", { userId: parsedUser.id });
-            } else {
-                console.warn("User ID not found in stored user object.");
-            }
-        } catch (error) {
-            console.error("Failed to retrieve user from storage:", error);
+            const catRes = await fetch(
+                `${url}/category/by-name/${text}`
+            );
+            const catJson = await catRes.json();
+
+            const subRes = await fetch(
+                `${url}/subcategory/by-name/${text}`
+            );
+            const subJson = await subRes.json();
+
+            const catList = Array.isArray(catJson.data) ? catJson.data : [];
+            const subList = Array.isArray(subJson.data) ? subJson.data : [];
+
+            const merged = [
+                ...catList.map(c => ({
+                    type: "category",
+                    id: c.categoryId,
+                    name: c.categoryName
+                })),
+                ...subList.map(s => ({
+                    type: "subcategory",
+                    id: s.subCategoryId,
+                    name: s.subCategoryName
+                }))
+            ];
+
+            setSuggestions(merged);
+            setShowSuggestion(true);
+
+        } catch (e) {
+            console.log(e);
         }
     };
 
     if (loading) {
-        return <ActivityIndicator size="large" style={{ flex: 1, justifyContent: "center" }} />;
+        return (
+            <ActivityIndicator
+                size="large"
+                style={{ flex: 1, justifyContent: "center" }}
+            />
+        );
     }
 
+    const getWeatherBackground = () => {
+
+        if (!weather || !weather.weather || !weather.weather[0]) {
+            return require("../assets/weather/clear.png");
+        }
+
+        const main = weather.weather[0].main.toLowerCase();
+
+        if (main.includes("rain") || main.includes("drizzle")) {
+            return require("../assets/weather/rainy.png");
+        }
+
+        if (main.includes("snow")) {
+            return require("../assets/weather/snow.png");
+        }
+
+        if (main.includes("cloud")) {
+            return require("../assets/weather/cloud.png");
+        }
+
+        if (main.includes("clear")) {
+            return require("../assets/weather/sunny.png");
+        }
+
+        return require("../assets/weather/clear.png");
+    };
+
+    if (!fontsLoaded) return null;
+
     return (
-        <View style={{ flex: 1, backgroundColor: '#f4f7fb' }}>
-            <View style={styles.header}>
-                <Text style={styles.brand}>Kisan Seva</Text>
-                <Text style={styles.title}>your trusted farmer platform</Text>
-            </View>
+        <View style={{ flex: 1, backgroundColor: "#f8dec4" }}>
 
-            <View style={{ height: 150, overflow: 'hidden' }}>
-                <FlatList
-                    data={bannerItems}
-                    horizontal
-                    pagingEnabled
-                    showsHorizontalScrollIndicator={false}
-                    keyExtractor={(_, index) => index.toString()}
-                    renderItem={renderBannerItem}
-                />
-            </View>
+            <View style={styles.weatherWrapper}>
+                {weatherLoading ? (
+                    <ActivityIndicator />
+                ) : weather ? (
+                    <ImageBackground
+                        source={getWeatherBackground()}
+                        resizeMode="cover"
+                        imageStyle={{ borderRadius: 24 }}
+                        style={styles.weatherCard}
+                    >
 
-            <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Categories</Text>
-            </View>
-            <View style={{ marginBottom: 10, overflow: 'hidden' }}>
-                <FlatList
-                    data={categories}
-                    keyExtractor={(item, index) => item?.categoryId?.toString() || index.toString()}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.categoryRow}
-                    renderItem={({ item }) => (
-                        <TouchableOpacity
-                            style={styles.circleWrapper}
-                            onPress={() => navigation.navigate("SubCategory", { categoryId: item.categoryId })}
-                        >
-                            <Image source={{ uri: item.image }} style={styles.circleImage} />
-                            <Text style={styles.categoryLabel}>{item.categoryName}</Text>
-                        </TouchableOpacity>
-                    )}
-                />
-            </View>
+                        <View style={styles.weatherOverlay}>
 
-            <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Popular Items</Text>
-            </View>
-            <View style={{ marginBottom: 10, overflow: 'hidden' }}>
-                <FlatList
-                    data={popularAds}
-                    keyExtractor={(item) => item.adv_id.toString()}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.popularRow}
-                    renderItem={({ item }) => (
-                        <TouchableOpacity style={styles.popularCard} onPress={() => openModal(item)}>
-                            <Image source={{ uri: item.adv_Image }} style={styles.popularImage} />
-                            <Text numberOfLines={1} style={styles.popularTitle}>{item.adv_Title}</Text>
-                            <Text style={styles.popularCount}>Price: {item.adv_Price}</Text>
-                        </TouchableOpacity>
-                    )}
-                />
-            </View>
-
-            <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Fresh Items</Text>
-            </View>
-            <View style={{ marginBottom: 10, overflow: 'hidden' }}>
-                <FlatList
-                    data={RecentAds}
-                    keyExtractor={(item) => item.adv_id.toString()}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.popularRow}
-                    renderItem={({ item }) => (
-                        <TouchableOpacity style={styles.popularCard} onPress={() => openModal(item)}>
-                            <Image source={{ uri: item.adv_Image }} style={styles.popularImage} />
-                            <Text numberOfLines={1} style={styles.popularTitle}>{item.adv_Title}</Text>
-                            <Text style={styles.popularCount}>Price: {item.adv_Price}</Text>
-                        </TouchableOpacity>
-                    )}
-                />
-            </View>
-
-            <Modal visible={modalVisible} transparent animationType="slide">
-                <View style={styles.modelBackground}>
-                    <View style={styles.modelContent}>
-                        {selectedAd && (
-                            <>
-                                <TouchableOpacity onPress={closeModal} style={styles.crossIcon}>
-                                    <Ionicons name="close" size={24} color="#000" />
-                                </TouchableOpacity>
-                                <Image source={{ uri: selectedAd.adv_Image }} style={styles.modalImage} />
-
-                                <View style={styles.viewCountOverlay}>
-                                    <Ionicons name="eye" size={16} color="#fff" />
-                                    <Text style={styles.viewCountText}>{selectedAd.count || 0}</Text>
+                            <View style={styles.weatherTop}>
+                                <View>
+                                    <Text style={styles.weatherCity}>{weather.name}</Text>
+                                    <Text style={styles.weatherDesc}>
+                                        {weather.weather[0].main}
+                                    </Text>
                                 </View>
 
-                                <Text style={styles.modalTitle}>{selectedAd.adv_Title}</Text>
-                                <Text>{selectedAd.adv_Description}</Text>
-                                <Text>Price: ₹{selectedAd.adv_Price}</Text>
-                                <Text>Location: {selectedAd.adv_Address}</Text>
-
-                                <Text style={styles.farmerText}>
-                                    Farmer: {selectedAd.farmer?.name || 'Unknown'}
-                                </Text>
-
-                                {selectedAd.farmer?.profilePic && (
+                                <View style={{ flexDirection: "row", alignItems: "center" }}>
                                     <Image
-                                        source={{ uri: selectedAd.farmer.profilePic }}
-                                        style={{ width: 60, height: 60, borderRadius: 30, marginTop: 10 }}
+                                        source={{
+                                            uri: `https://openweathermap.org/img/wn/${weather.weather[0].icon}@2x.png`
+                                        }}
+                                        style={{ width: 46, height: 46 }}
                                     />
-                                )}
-
-                                <View style={styles.iconRow}>
-                                    <TouchableOpacity
-                                        style={styles.iconButton}
-                                        onPress={() => openDialer(selectedAd.farmer?.phoneNumber)}
-                                    >
-                                        <Ionicons name="call" size={24} color="#1e90ff" />
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity
-                                        style={styles.iconButton}
-                                        onPress={() => Alert.alert("Chat", "Chat with farmer coming soon.")}
-                                    >
-                                        <Text style={styles.chatText}>💬</Text>
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity
-                                        style={styles.iconButton}
-                                        onPress={() => openMap(
-                                            selectedAd.adv_Location?.latitude,
-                                            selectedAd.adv_Location?.longitude
-                                        )}
-                                    >
-                                        <Ionicons name="location" size={24} color="green" />
-                                    </TouchableOpacity>
+                                    <Text style={styles.weatherTemp}>
+                                        {Math.round(weather.main.temp)}°C
+                                    </Text>
                                 </View>
-                            </>
-                        )}
+                            </View>
+
+                            <View style={styles.weatherInfoRow}>
+                                <View style={styles.weatherMiniBox}>
+                                    <Text style={styles.weatherMiniLabel}>Humidity</Text>
+                                    <Text style={styles.weatherMiniValue}>
+                                        {weather.main.humidity}%
+                                    </Text>
+                                </View>
+
+                                <View style={styles.weatherMiniBox}>
+                                    <Text style={styles.weatherMiniLabel}>Wind</Text>
+                                    <Text style={styles.weatherMiniValue}>
+                                        {weather.wind.speed} m/s
+                                    </Text>
+                                </View>
+
+                                <View style={styles.weatherMiniBox}>
+                                    <Text style={styles.weatherMiniLabel}>Sunrise</Text>
+                                    <Text style={styles.weatherMiniValue}>
+                                        {new Date(weather.sys.sunrise * 1000).toLocaleTimeString()}
+                                    </Text>
+                                </View>
+
+                                <View style={styles.weatherMiniBox}>
+                                    <Text style={styles.weatherMiniLabel}>Sunset</Text>
+                                    <Text style={styles.weatherMiniValue}>
+                                        {new Date(weather.sys.sunset * 1000).toLocaleTimeString()}
+                                    </Text>
+                                </View>
+                            </View>
+
+                        </View>
+
+                    </ImageBackground>
+
+                ) : null}
+            </View>
+
+            <View style={styles.headerWrapper}>
+                <View style={styles.greenHeader}>
+                    <View style={styles.searchBox}>
+                        <Ionicons name="search" size={18} color="#64748b" />
+                        <TextInput
+                            value={searchText}
+                            onChangeText={handleSearchInput}
+                            placeholder="Search categories or sub categories"
+                            placeholderTextColor="#000000"
+                            style={styles.searchInput}
+                        />
                     </View>
                 </View>
-            </Modal>
+            </View>
 
-            <TouchableOpacity style={styles.fab} onPress={handleAddPress}>
-                <Ionicons name="add" size={32} color="#000" />
-            </TouchableOpacity>
 
-            <Footer />
+            {showSuggestion && (
+                <View style={styles.suggestionBox}>
+                    <FlatList
+                        data={suggestions}
+                        keyExtractor={(item, i) => item.type + item.id + i}
+                        renderItem={({ item }) => (
+                            <TouchableOpacity
+                                style={styles.suggestionItem}
+                                onPress={() => {
+
+                                    setShowSuggestion(false);
+                                    setSearchText("");
+
+                                    if (item.type === "category") {
+                                        navigation.navigate("SubCategory", {
+                                            categoryId: item.id
+                                        });
+                                    } else {
+                                        navigation.navigate("AdsBySubCategory", {
+                                            subCategoryId: item.id
+                                        });
+                                    }
+                                }}
+                            >
+                                <Ionicons
+                                    name={item.type === "category" ? "grid" : "leaf"}
+                                    size={16}
+                                    color="#14532d"
+                                />
+                                <Text style={styles.suggestionText}>{item.name}</Text>
+                            </TouchableOpacity>
+                        )}
+                    />
+                </View>
+            )}
+
+            <View style={styles.categoryHeader}>
+                <View style={styles.categoryMiddleLine} />
+
+                <Text style={styles.categoryTitle}>Browse Categories</Text>
+                <View style={styles.categoryLineRow}>
+                    <View style={styles.categoryLineSide} />
+                    <View style={styles.categoryLineSide} />
+                </View>
+                <Text style={styles.categorySubtitle}>Find what you need.</Text>
+
+            </View>
+
+
+
+
+            {activeTab === "category" && (
+                <FlatList
+                    contentContainerStyle={styles.categoryGrid}
+                    data={categories}
+                    keyExtractor={(item) => item.categoryId.toString()}
+                    numColumns={3}
+                    renderItem={({ item }) => (
+                        <TouchableOpacity
+                            style={styles.categoryItem}
+                            onPress={() =>
+                                navigation.navigate("SubCategory", {
+                                    categoryId: item.categoryId
+                                })
+                            }
+                        >
+                            <View style={styles.categoryCircle}>
+
+                                <Image
+                                    source={{ uri: item.imageLink }}
+                                    style={styles.categoryIcon}
+                                />
+
+                            </View>
+
+                            <Text style={styles.categoryLabel} numberOfLines={1}>
+                                {item.categoryName}
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+                />
+            )}
+            <Footer/>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    header: {
+
+    headerWrapper: {
+        backgroundColor: "transparent"
+    },
+
+    greenHeader: {
+        paddingTop: 12,
+        paddingBottom: 12,
         paddingHorizontal: 16,
-        paddingTop: 50,
-        paddingBottom: 10,
-        backgroundColor: '#f4f7fb',
+        backgroundColor: "transparent"
     },
-    brand: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#217300',
+
+    headerTitle: {
+        color: "#ffffff",
+        fontSize: 26,
+        fontWeight: "800",
+        letterSpacing: 0.5,
+        marginBottom: 14
     },
-    sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        alignItems: 'center',
-        marginBottom: 6,
+
+    searchBox: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#ffffff",
+        borderRadius: 18,
+        paddingHorizontal: 14,
+        height: 46,
+
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.12,
+        shadowRadius: 10,
+        elevation: 8
     },
-    sectionTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#3ab008',
-    },
-    categoryRow: {
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-    },
-    circleWrapper: {
-        alignItems: 'center',
-        marginRight: 20,
-    },
-    circleImage: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        backgroundColor: '#fff',
-        marginBottom: 6,
-    },
-    categoryLabel: {
-        fontSize: 13,
-        fontWeight: '500',
-        color: '#1e293b',
-    },
-    slide: {
-        width: width,
-        height: 150,
-        borderRadius: 12,
-        overflow: 'hidden',
-        margin: 0,
-        padding: 0,
-    },
-    bannerImage: {
-        width: '100%',
-        height: '100%',
-        resizeMode: 'cover',
-    },
-    popularRow: {
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-    },
-    popularCard: {
-        width: 140,
-        backgroundColor: '#fff',
-        marginRight: 16,
-        borderRadius: 12,
-        padding: 8,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
-    },
-    popularImage: {
-        width: '100%',
-        height: 80,
-        borderRadius: 8,
-        marginBottom: 6,
-    },
-    popularTitle: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#1e293b',
-    },
-    popularCount: {
-        fontSize: 12,
-        color: '#23be0d',
-    },
-    fab: {
-        position: 'absolute',
-        bottom: 90,
-        right: 30,
-        backgroundColor: '#fefae0',
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        alignItems: 'center',
-        justifyContent: 'center',
-        elevation: 5,
-    },
-    modelBackground: {
+
+
+    searchInput: {
         flex: 1,
-        justifyContent: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.6)',
-        padding: 20,
+        marginLeft: 10,
+        color: "#0f172a",
+        fontSize: 14
     },
-    modelContent: {
-        backgroundColor: '#fff',
-        borderRadius: 10,
-        padding: 20,
-        alignItems: 'center',
+
+
+    weatherRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        paddingVertical: 6,
+        borderBottomWidth: 0.5,
+        borderColor: "#e5e7eb"
     },
-    crossIcon: {
-        position: 'absolute',
-        top: 10,
-        right: 10,
-        zIndex: 10,
-        padding: 5,
+
+    tabRow: {
+        flexDirection: "row",
+        paddingHorizontal: 14,
+        marginTop: 14
     },
-    modalImage: {
-        width: 250,
-        height: 200,
-        marginBottom: 10,
-        borderRadius: 10,
+
+    tabItem: {
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        marginRight: 10,
+        backgroundColor: "#e8f5ee"
     },
-    modalTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        marginBottom: 10,
-        color: '#1e293b',
+
+    tabItemActive: {
+        backgroundColor: "#14532d"
     },
-    farmerText: {
-        marginTop: 10,
-        fontSize: 16,
-        fontWeight: '500',
-        color: '#333',
+
+    tabText: {
+        color: "#14532d",
+        fontSize: 13,
+        fontWeight: "700"
     },
-    iconRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        width: '80%',
-        marginTop: 15,
+
+    tabTextActive: {
+        color: "#ffffff"
     },
-    iconButton: {
-        backgroundColor: '#eef',
-        padding: 10,
-        borderRadius: 50,
+
+    suggestionBox: {
+        backgroundColor: "#ffffff",
+        marginHorizontal: 14,
+        marginTop: 6,
+        borderRadius: 16,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 10,
+        maxHeight: 220,
+        overflow: "hidden"
     },
-    chatText: {
-        fontSize: 20,
+
+    suggestionItem: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 12,
+        paddingHorizontal: 14,
+        borderBottomWidth: 0.5,
+        borderColor: "#e5e7eb"
     },
-    viewCountOverlay: {
-        position: 'absolute',
-        top: 15,
-        left: 15,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        borderRadius: 15,
-        paddingVertical: 4,
-        paddingHorizontal: 8,
-        flexDirection: 'row',
-        alignItems: 'center',
-        zIndex: 10,
-    },
-    viewCountText: {
-        color: '#fff',
-        marginLeft: 4,
+
+    suggestionText: {
+        marginLeft: 10,
         fontSize: 14,
+        fontWeight: "600",
+        color: "#14532d"
     },
+
+    categoryGrid: {
+        paddingHorizontal: 12,
+        paddingTop: 18,
+        paddingBottom: 90
+    },
+
+    categoryItem: {
+        width: width / 3 - 18,
+        alignItems: "center",
+        marginBottom: 22
+    },
+
+
+    weatherWrapper: {
+        paddingHorizontal: 14,
+        paddingTop: 14
+    },
+
+
+    categoryCircle: {
+        width: width / 3 - 28,
+        height: width / 3 - 28,
+        borderRadius: 20,
+        backgroundColor: "#ffffff",
+        justifyContent: "center",
+        alignItems: "center",
+        marginBottom: 8,
+        overflow: "hidden",
+
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.12,
+        shadowRadius: 10,
+        elevation: 8
+    },
+
+
+    categoryIcon: {
+        width: "100%",
+        height: "100%",
+        resizeMode: "cover"
+    },
+
+
+    categoryLabel: {
+        fontSize: 13.5,
+        fontWeight: "700",
+        color: "#0f172a",
+        textAlign: "center"
+    },
+
+    weatherCard: {
+        height: height / 3,
+        borderRadius: 28,
+        overflow: "hidden",
+        justifyContent: "flex-end",
+
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.25,
+        shadowRadius: 16,
+        elevation: 12
+    },
+
+
+    weatherOverlay: {
+        flex: 1,
+        padding: 16,
+        backgroundColor: "rgba(0,0,0,0.25)"
+    },
+
+    weatherCity: {
+        fontSize: 20,
+        fontWeight: "800",
+        color: "#ffffff"
+    },
+
+    weatherDesc: {
+        marginTop: 2,
+        fontSize: 13,
+        fontWeight: "600",
+        color: "#e5e7eb"
+    },
+
+    weatherTemp: {
+        fontSize: 32,
+        fontWeight: "900",
+        marginLeft: 8,
+        color: "#ffffff"
+    },
+
+    weatherTop: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 14
+    },
+
+    weatherInfoRow: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        justifyContent: "space-between"
+    },
+
+    weatherMiniBox: {
+        width: "48%",
+        backgroundColor: "rgba(255,255,255,0.20)",
+        borderRadius: 12,
+        paddingVertical: 8,
+        paddingHorizontal: 10,
+        marginBottom: 8
+    },
+
+    weatherMiniLabel: {
+        fontSize: 11,
+        color: "#e5e7eb",
+        fontWeight: "600"
+    },
+
+    weatherMiniValue: {
+        fontSize: 13,
+        color: "#ffffff",
+        fontWeight: "700",
+        marginTop: 2
+    },
+
+    categoryHeader: {
+        marginTop: 12,
+        marginBottom: 12,
+        alignItems: "center",
+        position: "relative"
+    },
+
+    categoryTitle: {
+        fontSize: 25,
+        fontFamily: "PoppinsSemi",
+        color: "#5a4a42"
+    },
+
+    categorySubtitle: {
+        marginTop: 2,
+        fontSize: 18,
+        fontFamily: "PoppinsRegular",
+        color: "#8b7a70"
+    },
+
+    categoryLineRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        width: "80%",
+        marginVertical: 4
+    },
+
+    categoryLineSide: {
+        width: "35%",
+        height: 1,
+        backgroundColor: "#554333"
+    },
+
+
+    categoryMiddleLine: {
+        marginTop: 6,
+        marginBottom: 6,
+        width: "60%",
+        height: 1,
+        backgroundColor: "#554333"
+    },
+
+
+    categoryLine: {
+        position: "absolute",
+        top: 16,
+        height: 1,
+        width: "35%",
+        backgroundColor: "#e6d8cc"
+    },
+
+
 });
-
-
-
 

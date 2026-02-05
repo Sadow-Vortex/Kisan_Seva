@@ -1,34 +1,43 @@
-import React, {useEffect, useLayoutEffect, useState} from "react";
+import React, { useEffect, useLayoutEffect, useState } from "react";
 import {
-    View, Image, FlatList, StyleSheet, Dimensions,
-    ActivityIndicator, Text, TouchableOpacity
+    View,
+    Image,
+    FlatList,
+    StyleSheet,
+    Dimensions,
+    ActivityIndicator,
+    Text,
+    TouchableOpacity,
+    TextInput,
+    ImageBackground
 } from "react-native";
 import { useLocalSearchParams, useNavigation } from "expo-router";
-import view from "react-native-web/src/exports/View";
 import Footer from "./Footer";
 
-const { width } = Dimensions.get("window");
-const IMAGE_WIDTH = width / 2 - 20;
+const { width,height } = Dimensions.get("window");
+const IMAGE_WIDTH = width / 3 - 20;
 
 export default function SubCategory() {
+
     const navigation = useNavigation();
     const { categoryId } = useLocalSearchParams();
     const [subCategory, setSubCategory] = useState([]);
     const [loading, setLoading] = useState(true);
-    const url = `http://10.0.167.11:2001`;
+    const [categoryImage, setCategoryImage] = useState(null);
+    const [categoryName, setCategoryName] = useState("Sub Categories");
 
-    useLayoutEffect(()=>{
-        navigation.setOptions({
-            headerShown: false,
-        })
-    })
 
+    const url = `http://10.178.147.199:2001`;
+
+    useLayoutEffect(() => {
+        navigation.setOptions({ headerShown: false });
+    }, [navigation]);
 
     const fetchSubCategory = async () => {
         try {
-            const response = await fetch(`${url}/api/subcategories/by-category/${categoryId}`);
+            const response = await fetch(`${url}/subcategory/by-category/${categoryId}`);
             const data = await response.json();
-            const subcategoryArray = Array.isArray(data) ? data : data.data || [];
+            const subcategoryArray = Array.isArray(data?.data) ? data.data : [];
             setSubCategory(subcategoryArray);
         } catch (error) {
             console.error(error);
@@ -43,97 +52,272 @@ export default function SubCategory() {
         }
     }, [categoryId]);
 
+    useEffect(() => {
+        if (!categoryId) return;
+
+        fetch(`${url}/category`)
+            .then(res => res.json())
+            .then(json => {
+
+                const list = Array.isArray(json?.data) ? json.data : [];
+
+                const current = list.find(
+                    c => String(c.categoryId) === String(categoryId)
+                );
+
+                if (current) {
+                    setCategoryImage(current.imageLink || null);
+                    setCategoryName(current.categoryName || "Sub Categories");
+                }
+
+            })
+            .catch(err => console.log("category image load error", err));
+
+    }, [categoryId]);
+
+
     const renderItem = ({ item }) => {
-        console.log("SubCategory item:");
         return (
             <TouchableOpacity
                 style={styles.card}
-                onPress={() => navigation.navigate('AdsBySubCategory', {
-                    subCategoryId: item.subCategory_Id
-                })}
+                onPress={() =>
+                    navigation.navigate("AdsBySubCategory", {
+                        subCategoryId: item.subCategoryId
+                    })
+                }
             >
                 <Image
-                    source={{ uri: item.image }}
+                    source={{ uri: item.subCategoryImageLink }}
                     style={styles.image}
-                    onError={() => console.warn("Failed to load image:", item.image)}
                 />
-                <Text style={{ marginTop: 7 }}>{item.subCategory_Name}</Text>
+                <Text style={styles.cardTitle}>
+                    {item.subCategoryName}
+                </Text>
             </TouchableOpacity>
         );
     };
 
     if (loading) {
-        return <ActivityIndicator size="large" style={{ flex: 1, justifyContent: "center" }} />;
+        return (
+            <ActivityIndicator
+                size="large"
+                style={{ flex: 1, justifyContent: "center" }}
+            />
+        );
     }
 
     if (!Array.isArray(subCategory) || subCategory.length === 0) {
         return (
             <>
-                <View style={styles.header}>
-                    <Text style={styles.brand}>Kisan Seva</Text>
-                    <Text style={styles.title}>your trusted farmer platform</Text>
+                <View style={{ flex: 1, backgroundColor: "#FCEFE4" }}>
+
+                    <ImageBackground
+                        source={{
+                            uri: "https://i.pinimg.com/1200x/c5/c9/4e/c5c94e59aa8fd075e78c640c6e5e1533.jpg"
+                        }}
+                        style={styles.banner}
+                        imageStyle={styles.bannerImage}
+                    >
+                        <View style={styles.bannerOverlay}>
+                            <Text style={styles.bannerTitle}>Sub Categories</Text>
+                            <Text style={styles.bannerSub}>
+                                Select your favourites
+                            </Text>
+                        </View>
+                    </ImageBackground>
+
+                    <View style={styles.searchWrapper}>
+                        <TextInput
+                            placeholder="Search sub categories"
+                            placeholderTextColor="#9ca3af"
+                            style={styles.searchInput}
+                        />
+                    </View>
+
+                    <Text style={{ textAlign: "center", marginTop: 40 }}>
+                        No Sub Categories
+                    </Text>
+
+                    <Footer />
                 </View>
-                <Text style={{ textAlign: "center", marginTop: 50 }}>No Sub Categories</Text>
-                <Footer/>
             </>
         );
     }
 
     return (
-        <View  style={{ flex: 1, backgroundColor: '#f4f7fb' }}>
-            <View style={styles.header}>
-                <Text style={styles.brand}>Kisan Seva</Text>
-                <Text style={styles.title}>your trusted farmer platform</Text>
+        <View style={{ flex: 1, backgroundColor: "#FCEFE4" }}>
+
+            <ImageBackground
+                source={
+                    categoryImage
+                        ? { uri: categoryImage }
+                        : require('../assets/images/farm.jpg')
+                }
+                style={styles.banner}
+                imageStyle={styles.bannerImage}
+            >
+
+                <View style={styles.bannerOverlay}>
+                    <Text style={styles.bannerTitle}>{categoryName} </Text>
+                    <Text style={styles.bannerSub}>
+                        Select your favourites
+                    </Text>
+                </View>
+            </ImageBackground>
+
+            <View style={styles.searchWrapper}>
+                <TextInput
+                    placeholder="Search sub categories"
+                    placeholderTextColor="#9ca3af"
+                    style={styles.searchInput}
+                />
             </View>
+
+            <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Browse Subcategories</Text>
+
+                <View style={styles.sectionLineRow}>
+                    <View style={styles.sectionLine} />
+                    <View style={styles.sectionLine} />
+                </View>
+
+                <Text style={styles.sectionSub}>
+                    Choose the type you want.
+                </Text>
+            </View>
+
             <FlatList
                 data={subCategory}
-                keyExtractor={(item, index) => {
-                    if (!item || item.subCategory_Id === undefined || item.subCategory_Id === null) {
-                        console.warn("Missing subCategory_Id", item);
-                        return index.toString();
-                    }
-                    return item.subCategory_Id.toString();
-                }}
+                keyExtractor={(item, index) =>
+                    item?.subCategoryId
+                        ? item.subCategoryId.toString()
+                        : index.toString()
+                }
                 renderItem={renderItem}
-                numColumns={2}
+                numColumns={3}
                 contentContainerStyle={styles.container}
             />
-            <Footer/>
+
+            <Footer />
+
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        padding: 10,
+
+    banner: {
+        height: height/4,
+        width: "100%",
+        justifyContent: "flex-end"
     },
-    header: {
+
+    bannerImage: {
+        borderBottomLeftRadius: 26,
+        borderBottomRightRadius: 26
+    },
+
+    bannerOverlay: {
+        padding: 18,
+        backgroundColor: "rgba(0,0,0,0.25)",
+        borderBottomLeftRadius: 26,
+        borderBottomRightRadius: 26
+    },
+
+    bannerTitle: {
+        fontSize: 26,
+        fontWeight: "800",
+        color: "#ffffff"
+    },
+
+    bannerSub: {
+        marginTop: 4,
+        fontSize: 14,
+        color: "#f1f5f9",
+        fontWeight: "600"
+    },
+
+    searchWrapper: {
+        marginTop: 12,
+        marginHorizontal: 16,
+        backgroundColor: "#ffffff",
+        borderRadius: 20,
         paddingHorizontal: 16,
-        paddingTop: 50,
-        paddingBottom: 10,
-        backgroundColor: '#f4f7fb',
+        height: 46,
+        justifyContent: "center",
+
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 10
     },
-    brand: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#217300',
+
+    searchInput: {
+        fontSize: 14,
+        color: "#111827"
     },
-    image: {
-        width: IMAGE_WIDTH,
-        height: 150,
-        borderRadius: 10,
+
+    sectionHeader: {
+        marginTop: 18,
+        marginBottom: 18,
+        alignItems: "center"
+    },
+
+    sectionTitle: {
+        fontSize: 20,
+        fontWeight: "800",
+        color: "#5a4a42"
+    },
+
+    sectionLineRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        width: "70%",
+        marginVertical: 6
+    },
+
+    sectionLine: {
+        width: "35%",
+        height: 1,
+        backgroundColor: "#e7d6c9"
+    },
+
+    sectionSub: {
+        fontSize: 13,
+        color: "#8b7a70"
+    },
+
+    container: {
+        paddingHorizontal: 10,
+        paddingBottom: 90
     },
 
     card: {
-        flex: 1,
-        margin: 5,
-        alignItems: "center",
-        backgroundColor: "#fff",
-        borderRadius: 10,
+        width: IMAGE_WIDTH,
+        margin: 6,
+        backgroundColor: "#ffffff",
+        borderRadius: 18,
+        overflow: "hidden",
+
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-        elevation: 5,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 6
     },
+
+    image: {
+        width: "100%",
+        height: 110
+    },
+
+    cardTitle: {
+        paddingVertical: 10,
+        textAlign: "center",
+        fontSize: 14,
+        fontWeight: "700",
+        color: "#1f2937"
+    }
+
 });

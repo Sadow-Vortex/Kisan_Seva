@@ -8,7 +8,7 @@ import { Feather } from '@expo/vector-icons';
 import Footer from "./Footer";
 import {useFocusEffect} from "@react-navigation/native";
 
-const BACKEND_URL = 'http://10.0.167.11:2012';
+const BACKEND_URL = 'http://10.178.147.199:2012';
 
 export default function UserAdvertisements() {
     const navigation = useNavigation();
