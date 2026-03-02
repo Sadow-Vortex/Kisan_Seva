@@ -17,7 +17,7 @@ export default function LoginScreen() {
     const navigation = useNavigation();
     const [number, setNumber] = useState('');
     const [password, setPassword] = useState('');
-    const url = `http://10.178.147.199:1012`;
+    const url = `http://10.194.243.199:1012`;
 
     const [showSuccess, setShowSuccess] = useState(false);
     const successScale = useRef(new Animated.Value(0)).current;

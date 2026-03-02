@@ -27,8 +27,8 @@ export default function UserProfile() {
     const [loading, setLoading] = useState(true);
     const [activeAdsCount, setActiveAdsCount] = useState(0);
 
-    const apiURL = `http://10.178.147.199:1012`;
-    const adsURL = "http://10.178.147.199:2012";
+    const apiURL = `http://10.194.243.199:1012`;
+    const adsURL = "http://10.194.243.199:2012";
 
 
     useLayoutEffect(() => {

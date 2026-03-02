@@ -20,17 +20,24 @@ export default function LocationScreen() {
                 return;
             }
 
-            let loc = await Location.getCurrentPositionAsync({});
+            let loc = await Location.getLastKnownPositionAsync();
+
+            if (!loc) {
+                loc = await Location.getCurrentPositionAsync({
+                    accuracy: Location.Accuracy.Low
+                });
+            }
             setLocation(loc.coords);
             setMarkerPosition(prev => prev || loc.coords);
         })();
     }, []);
 
-    const handleConfirm = () => {
-        const callback = route.params?.onLocationSelected;
-        if (callback && typeof callback === 'function') {
-            callback(markerPosition);
-        }
+    const handleConfirm = async () => {
+        await AsyncStorage.setItem(
+            "selectedLocation",
+            JSON.stringify(markerPosition)
+        );
+
         navigation.goBack();
     };
 

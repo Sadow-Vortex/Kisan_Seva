@@ -27,7 +27,7 @@ export default function SubCategory() {
     const [categoryName, setCategoryName] = useState("Sub Categories");
 
 
-    const url = `http://10.178.147.199:2001`;
+    const url = `http://10.194.243.199:2001`;
 
     useLayoutEffect(() => {
         navigation.setOptions({ headerShown: false });

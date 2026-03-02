@@ -29,7 +29,7 @@ export default function Footer() {
             </TouchableOpacity>
 
             {/* Popular */}
-            <TouchableOpacity onPress={() => navigation.navigate("Popular")}>
+            <TouchableOpacity onPress={() => navigation.navigate("PopularAds")}>
                 <Image
                     source={require("../assets/images/fire.png")}
                     style={[
@@ -40,23 +40,12 @@ export default function Footer() {
             </TouchableOpacity>
 
             {/* Fresh */}
-            <TouchableOpacity onPress={() => navigation.navigate("Fresh")}>
+            <TouchableOpacity onPress={() => navigation.navigate("FreshAd")}>
                 <Image
                     source={require("../assets/images/fresh.png")}
                     style={[
                         styles.icon,
                         isActive("Fresh") && styles.activeIcon
-                    ]}
-                />
-            </TouchableOpacity>
-
-            {/* Nearby */}
-            <TouchableOpacity onPress={() => navigation.navigate("Nearby")}>
-                <Image
-                    source={require("../assets/images/location.png")}
-                    style={[
-                        styles.icon,
-                        isActive("Nearby") && styles.activeIcon
                     ]}
                 />
             </TouchableOpacity>

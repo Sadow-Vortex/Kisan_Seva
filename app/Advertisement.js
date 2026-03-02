@@ -3,6 +3,7 @@ import {
     View, Text, TextInput, Button, Switch, StyleSheet,
     ScrollView, Alert, TouchableOpacity, Dimensions, Image
 } from 'react-native';
+import { router } from "expo-router";
 import axios from 'axios';
 import * as Location from 'expo-location';
 import RNPickerSelect from 'react-native-picker-select';
@@ -10,6 +11,8 @@ import { useRoute, useNavigation } from "@react-navigation/native";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
+import { useFocusEffect } from "@react-navigation/native";
+import { useCallback } from "react";
 
 const Advertisement = () => {
 
@@ -20,8 +23,8 @@ const Advertisement = () => {
 
     const [categories, setCategories] = useState([]);
     const [subcategories, setSubcategories] = useState([]);
-    const url = "http://10.178.147.199:2001";
-    const urll = "http://10.178.147.199:2012";
+    const url = "http://10.194.243.199:2001";
+    const urll = "http://10.194.243.199:2012";
 
     const [uploading, setUploading] = useState(false);
 
@@ -67,6 +70,22 @@ const Advertisement = () => {
         }
     }, [formData.adv_CategoryID]);
 
+    useFocusEffect(
+        useCallback(() => {
+            const getLocationFromStorage = async () => {
+                const storedLocation = await AsyncStorage.getItem("selectedLocation");
+
+                if (storedLocation) {
+                    const coords = JSON.parse(storedLocation);
+                    await reverseGeocodeAndSetLocation(coords);
+                    await AsyncStorage.removeItem("selectedLocation");
+                }
+            };
+
+            getLocationFromStorage();
+        }, [])
+    );
+
     const reverseGeocodeAndSetLocation = async ({ latitude, longitude }) => {
         try {
             const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
@@ -103,11 +122,7 @@ const Advertisement = () => {
     };
 
     const handleLocationSelect = () => {
-        navigation.navigate('Map', {
-            onLocationSelected: async (coords) => {
-                await reverseGeocodeAndSetLocation(coords);
-            }
-        });
+        navigation.navigate("Map");
     };
 
     const PickImage = async () => {
@@ -234,10 +249,7 @@ const Advertisement = () => {
                     adv_subCategoryID: subCategoryId || ''
                 }));
 
-                navigation.reset({
-                    index: 0,
-                    routes: [{ name: 'Home' }],
-                });
+                router.replace("/Home");
             })
             .catch(error => {
                 Alert.alert('Error', 'Something went wrong while posting.');

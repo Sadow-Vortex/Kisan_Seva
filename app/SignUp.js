@@ -24,7 +24,7 @@ export default function SignUp() {
     const successScale = React.useRef(new Animated.Value(0)).current;
     const successOpacity = React.useRef(new Animated.Value(0)).current;
 
-    const url = `http://10.178.147.199:1012/api/users/`;
+    const url = `http://10.194.243.199:1012/api/users/`;
 
     const playSuccessAnimation = (onDone) => {
 

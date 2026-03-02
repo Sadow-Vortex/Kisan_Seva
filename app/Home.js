@@ -48,7 +48,7 @@ export default function HomeScreen() {
     }, []);
 
 
-    const url = "http://10.178.147.199:2001";
+    const url = "http://10.194.243.199:2001";
 
     useLayoutEffect(() => {
         navigation.setOptions({ headerShown: false });
@@ -59,17 +59,31 @@ export default function HomeScreen() {
         fetchWeather();
     }, []);
 
-    // ---------------- WEATHER ----------------
 
     const fetchWeather = async () => {
         try {
+
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== "granted") {
                 setWeatherLoading(false);
                 return;
             }
 
-            const loc = await Location.getCurrentPositionAsync({});
+            const servicesEnabled = await Location.hasServicesEnabledAsync();
+
+            if (!servicesEnabled) {
+                Alert.alert(
+                    "Location disabled",
+                    "Please turn on location services to show weather."
+                );
+                setWeatherLoading(false);
+                return;
+            }
+
+            const loc = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced,
+            });
+
             const lat = loc.coords.latitude;
             const lon = loc.coords.longitude;
 
@@ -88,6 +102,7 @@ export default function HomeScreen() {
             setWeatherLoading(false);
         }
     };
+
 
 
     const fetchCategories = async () => {
