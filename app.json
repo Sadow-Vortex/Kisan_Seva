@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "LogIn",
-    "slug": "LogIn",
+    "name": "Kisan Seva",
+    "slug": "kisan-seva",
     "version": "1.0.0",
+    "icon": "./assets/images/Logo.png",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
     "scheme": "login",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -16,8 +16,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "usesCleartextTraffic": true,
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/Logo.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -50,12 +49,12 @@
     "experiments": {
       "typedRoutes": true
     },
+    "owner": "sadow_vortex",
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "c354d1f0-0ec1-41c5-a09e-66cd01f3b827"
+        "projectId": "cf92640e-c1b5-4634-8501-a4d1d5483ddd"
       }
-    },
-    "owner": "sadow_vortex"
+    }
   }
 }
