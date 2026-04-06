@@ -26,67 +26,70 @@ export default function SignUp() {
 
     const url = `https://kisan-seva-user.onrender.com/api/users/`;
 
-    const playSuccessAnimation = (onDone) => {
 
-        setShowSuccess(true);
-        successScale.setValue(0);
-        successOpacity.setValue(0);
 
-        Animated.parallel([
 
-            Animated.timing(successOpacity, {
-                toValue: 1,
-                duration: 150,
-                useNativeDriver: true
-            }),
+    const [loading, setLoading] = React.useState(false);
 
-            Animated.spring(successScale, {
-                toValue: 1,
-                friction: 5,
-                useNativeDriver: true
-            })
-
-        ]).start(() => {
-
-            setTimeout(() => {
-                setShowSuccess(false);
-                onDone && onDone();
-            }, 600);
-
-        });
+// ✅ Validation
+    const validate = () => {
+        if (!name.trim()) {
+            Alert.alert("Error", "Enter your name");
+            return false;
+        }
+        if (!email.includes("@")) {
+            Alert.alert("Error", "Enter valid email");
+            return false;
+        }
+        if (number.length !== 10) {
+            Alert.alert("Error", "Enter valid number");
+            return false;
+        }
+        if (password.length < 6) {
+            Alert.alert("Error", "Password must be 6+ chars");
+            return false;
+        }
+        return true;
     };
 
-    const handleSignUp = async () => {
-        try {
+// ✅ SEND OTP
+    const handleSendOtp = async () => {
 
-            const response = await fetch(`${url}`, {
+        if (!validate()) return;
+
+        setLoading(true);
+
+        try {
+            const response = await fetch(`${url}send-otp`, {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json",
+                    "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    name: name.trim(),
-                    email: email.trim(),
-                    number: number.trim(),
-                    password: password.trim(),
-                }),
+                    email: email.trim().toLowerCase()
+                })
             });
 
             const data = await response.json();
 
-            if (response.ok && data.status_code === 200) {
+            if (data.status_code === 200) {
 
-                playSuccessAnimation(() => {
-                    navigation.navigate("LoginScreen");
+                // ✅ Navigate to OTP screen with data
+                navigation.navigate("OtpVerification", {
+                    name,
+                    email,
+                    number,
+                    password
                 });
 
             } else {
-                Alert.alert(data.status_msg || "Signup failed");
+                Alert.alert("Error", data.status_msg);
             }
 
         } catch (err) {
-            console.error(err);
-            Alert.alert("Sign up Error", err.message);
+            Alert.alert("Error", err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -149,9 +152,21 @@ export default function SignUp() {
                         onChangeText={setPassword}
                         secureTextEntry
                     />
+                    <View style={{
+                        backgroundColor: 'rgba(47,109,246,0.25)',
+                        padding: 10,
+                        borderRadius: 10,
+                        marginBottom: 10
+                    }}>
+                        <Text style={{ color: '#fff', fontSize: 12, textAlign: 'center' }}>
+                            📧 OTP will be sent to your email
+                        </Text>
+                    </View>
 
-                    <TouchableOpacity style={styles.signupBtn} onPress={handleSignUp}>
-                        <Text style={styles.signupText}>Create Account</Text>
+                    <TouchableOpacity onPress={handleSendOtp}>
+                        <Text>
+                            {loading ? "Sending..." : "Send OTP"}
+                        </Text>
                     </TouchableOpacity>
 
                     <View style={styles.loginRow}>
