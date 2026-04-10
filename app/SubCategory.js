@@ -1,323 +1,194 @@
-import React, { useEffect, useLayoutEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useState, useRef } from "react";
 import {
-    View,
-    Image,
-    FlatList,
-    StyleSheet,
-    Dimensions,
-    ActivityIndicator,
-    Text,
-    TouchableOpacity,
-    TextInput,
-    ImageBackground
+    View, Image, FlatList, StyleSheet, Dimensions,
+    ActivityIndicator, Text, TouchableOpacity, TextInput,
+    ImageBackground, Animated, StatusBar
 } from "react-native";
 import { useLocalSearchParams, useNavigation } from "expo-router";
 import Footer from "./Footer";
+import { useTheme } from "./Themecontext";
 
-const { width,height } = Dimensions.get("window");
+const { width, height } = Dimensions.get("window");
 const IMAGE_WIDTH = width / 3 - 20;
 
 export default function SubCategory() {
-
     const navigation = useNavigation();
     const { categoryId } = useLocalSearchParams();
-    const [subCategory, setSubCategory] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [categoryImage, setCategoryImage] = useState(null);
-    const [categoryName, setCategoryName] = useState("Sub Categories");
+    const { theme: T, isDark } = useTheme();
 
+    const [subCategory, setSubCategory]       = useState([]);
+    const [loading, setLoading]               = useState(true);
+    const [categoryImage, setCategoryImage]   = useState(null);
+    const [categoryName, setCategoryName]     = useState("Sub Categories");
+    const [searchText, setSearchText]         = useState("");
+    const [filteredSub, setFilteredSub]       = useState([]);
+    const [searchFocused, setSearchFocused]   = useState(false);
 
+    const orb1Y = useRef(new Animated.Value(0)).current;
     const url = `https://kisan-seva-subcategory.onrender.com`;
 
-    useLayoutEffect(() => {
-        navigation.setOptions({ headerShown: false });
-    }, [navigation]);
+    useLayoutEffect(() => { navigation.setOptions({ headerShown: false }); }, [navigation]);
+
+    useEffect(() => {
+        if (categoryId) { fetchSubCategory(); fetchCategoryInfo(); }
+        Animated.loop(Animated.sequence([
+            Animated.timing(orb1Y, { toValue: 16, duration: 3000, useNativeDriver: true }),
+            Animated.timing(orb1Y, { toValue: -16, duration: 3000, useNativeDriver: true }),
+        ])).start();
+    }, [categoryId]);
 
     const fetchSubCategory = async () => {
         try {
-            const response = await fetch(`${url}/subcategory/by-category/${categoryId}`);
-            const data = await response.json();
-            const subcategoryArray = Array.isArray(data?.data) ? data.data : [];
-            setSubCategory(subcategoryArray);
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setLoading(false);
-        }
+            const res  = await fetch(`${url}/subcategory/by-category/${categoryId}`);
+            const data = await res.json();
+            const arr  = Array.isArray(data?.data) ? data.data : [];
+            setSubCategory(arr); setFilteredSub(arr);
+        } catch (e) { console.error(e); }
+        finally { setLoading(false); }
     };
 
-    useEffect(() => {
-        if (categoryId) {
-            fetchSubCategory();
-        }
-    }, [categoryId]);
-
-    useEffect(() => {
-        if (!categoryId) return;
-
-        fetch(`${url}/category`)
-            .then(res => res.json())
-            .then(json => {
-
-                const list = Array.isArray(json?.data) ? json.data : [];
-
-                const current = list.find(
-                    c => String(c.categoryId) === String(categoryId)
-                );
-
-                if (current) {
-                    setCategoryImage(current.imageLink || null);
-                    setCategoryName(current.categoryName || "Sub Categories");
-                }
-
-            })
-            .catch(err => console.log("category image load error", err));
-
-    }, [categoryId]);
-
-
-    const renderItem = ({ item }) => {
-        return (
-            <TouchableOpacity
-                style={styles.card}
-                onPress={() =>
-                    navigation.navigate("AdsBySubCategory", {
-                        subCategoryId: item.subCategoryId
-                    })
-                }
-            >
-                <Image
-                    source={{ uri: item.subCategoryImageLink }}
-                    style={styles.image}
-                />
-                <Text style={styles.cardTitle}>
-                    {item.subCategoryName}
-                </Text>
-            </TouchableOpacity>
-        );
+    const fetchCategoryInfo = async () => {
+        try {
+            const res  = await fetch(`${url}/category`);
+            const json = await res.json();
+            const list = Array.isArray(json?.data) ? json.data : [];
+            const curr = list.find(c => String(c.categoryId) === String(categoryId));
+            if (curr) { setCategoryImage(curr.imageLink || null); setCategoryName(curr.categoryName || "Sub Categories"); }
+        } catch { }
     };
 
-    if (loading) {
-        return (
-            <ActivityIndicator
-                size="large"
-                style={{ flex: 1, justifyContent: "center" }}
-            />
-        );
-    }
+    const handleSearch = (text) => {
+        setSearchText(text);
+        if (!text.trim()) { setFilteredSub(subCategory); return; }
+        setFilteredSub(subCategory.filter(item =>
+            item.subCategoryName?.toLowerCase().includes(text.toLowerCase())
+        ));
+    };
 
-    if (!Array.isArray(subCategory) || subCategory.length === 0) {
-        return (
-            <>
-                <View style={{ flex: 1, backgroundColor: "#FCEFE4" }}>
+    const renderItem = ({ item }) => (
+        <TouchableOpacity
+            style={[styles.card, { backgroundColor: T.card, borderColor: T.cardBorder }]}
+            onPress={() => navigation.navigate("AdsBySubCategory", { subCategoryId: item.subCategoryId })}
+        >
+            <Image source={{ uri: item.subCategoryImageLink }} style={styles.image} />
+            <Text style={[styles.cardTitle, { color: T.text }]}>{item.subCategoryName}</Text>
+        </TouchableOpacity>
+    );
 
-                    <ImageBackground
-                        source={{
-                            uri: "https://i.pinimg.com/1200x/c5/c9/4e/c5c94e59aa8fd075e78c640c6e5e1533.jpg"
-                        }}
-                        style={styles.banner}
-                        imageStyle={styles.bannerImage}
-                    >
-                        <View style={styles.bannerOverlay}>
-                            <Text style={styles.bannerTitle}>Sub Categories</Text>
-                            <Text style={styles.bannerSub}>
-                                Select your favourites
-                            </Text>
-                        </View>
-                    </ImageBackground>
-
-                    <View style={styles.searchWrapper}>
-                        <TextInput
-                            placeholder="Search sub categories"
-                            placeholderTextColor="#9ca3af"
-                            style={styles.searchInput}
-                        />
-                    </View>
-
-                    <Text style={{ textAlign: "center", marginTop: 40 }}>
-                        No Sub Categories
-                    </Text>
-
-                    <Footer />
-                </View>
-            </>
-        );
-    }
+    if (loading) return (
+        <View style={[{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: T.bg }]}>
+            <ActivityIndicator size="large" color={T.accent} />
+        </View>
+    );
 
     return (
-        <View style={{ flex: 1, backgroundColor: "#FCEFE4" }}>
+        <View style={[styles.root, { backgroundColor: T.bg }]}>
+            <StatusBar barStyle={T.statusBar} />
 
+            {isDark && (
+                <Animated.View style={[styles.orb1, { backgroundColor: T.orb1, transform: [{ translateY: orb1Y }] }]} />
+            )}
+
+            {/* Banner */}
             <ImageBackground
-                source={
-                    categoryImage
-                        ? { uri: categoryImage }
-                        : require('../assets/images/farm.jpg')
-                }
+                source={categoryImage ? { uri: categoryImage } : require('../assets/images/farm.jpg')}
                 style={styles.banner}
                 imageStyle={styles.bannerImage}
             >
-
                 <View style={styles.bannerOverlay}>
-                    <Text style={styles.bannerTitle}>{categoryName} </Text>
-                    <Text style={styles.bannerSub}>
-                        Select your favourites
-                    </Text>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.bannerBack}>
+                        <Ionicons name="arrow-back" size={22} color="#fff" />
+                    </TouchableOpacity>
+                    <Text style={styles.bannerTitle}>{categoryName}</Text>
+                    <Text style={styles.bannerSub}>Select your favourites</Text>
                 </View>
             </ImageBackground>
 
-            <View style={styles.searchWrapper}>
+            {/* Search */}
+            <View style={[styles.searchWrapper, {
+                backgroundColor: T.card, borderColor: searchFocused ? T.accent : T.cardBorder,
+            }]}>
+                <Ionicons name="search" size={16} color={searchFocused ? T.accent : T.textMuted} style={{ marginRight: 8 }} />
                 <TextInput
                     placeholder="Search sub categories"
-                    placeholderTextColor="#9ca3af"
-                    style={styles.searchInput}
+                    placeholderTextColor={T.placeholder}
+                    style={[styles.searchInput, { color: T.text }]}
+                    value={searchText}
+                    onChangeText={handleSearch}
+                    onFocus={() => setSearchFocused(true)}
+                    onBlur={() => setSearchFocused(false)}
                 />
             </View>
 
+            {/* Section header */}
             <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Browse Subcategories</Text>
-
-                <View style={styles.sectionLineRow}>
-                    <View style={styles.sectionLine} />
-                    <View style={styles.sectionLine} />
-                </View>
-
-                <Text style={styles.sectionSub}>
-                    Choose the type you want.
-                </Text>
+                <Text style={[styles.sectionTitle, { color: T.text }]}>Browse Subcategories</Text>
+                <View style={[styles.sectionLine, { backgroundColor: T.accent }]} />
+                <Text style={[styles.sectionSub, { color: T.textSub }]}>Choose the type you want.</Text>
             </View>
 
-            <FlatList
-                data={subCategory}
-                keyExtractor={(item, index) =>
-                    item?.subCategoryId
-                        ? item.subCategoryId.toString()
-                        : index.toString()
-                }
-                renderItem={renderItem}
-                numColumns={3}
-                contentContainerStyle={styles.container}
-            />
+            {filteredSub.length === 0 ? (
+                <View style={{ flex: 1, alignItems: 'center', paddingTop: 60 }}>
+                    <Text style={{ fontSize: 40 }}>🌿</Text>
+                    <Text style={[{ marginTop: 14, fontSize: 15, fontWeight: '600', color: T.textSub }]}>
+                        No sub-categories found
+                    </Text>
+                </View>
+            ) : (
+                <FlatList
+                    data={filteredSub}
+                    keyExtractor={(item, i) => item?.subCategoryId ? item.subCategoryId.toString() : i.toString()}
+                    renderItem={renderItem}
+                    numColumns={3}
+                    contentContainerStyle={styles.container}
+                />
+            )}
 
             <Footer />
-
         </View>
     );
 }
 
+// Need Ionicons for back button
+import { Ionicons } from "@expo/vector-icons";
+
 const styles = StyleSheet.create({
+    root: { flex: 1 },
+    orb1: { position: 'absolute', width: 200, height: 200, borderRadius: 100, top: -30, right: -30, zIndex: 0 },
 
-    banner: {
-        height: height/4,
-        width: "100%",
-        justifyContent: "flex-end"
-    },
-
-    bannerImage: {
-        borderBottomLeftRadius: 26,
-        borderBottomRightRadius: 26
-    },
-
+    banner: { height: height / 4, width: "100%", justifyContent: "flex-end" },
+    bannerImage: { borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
     bannerOverlay: {
-        padding: 18,
-        backgroundColor: "rgba(0,0,0,0.25)",
-        borderBottomLeftRadius: 26,
-        borderBottomRightRadius: 26
+        padding: 18, backgroundColor: "rgba(0,0,0,0.3)",
+        borderBottomLeftRadius: 28, borderBottomRightRadius: 28,
     },
-
-    bannerTitle: {
-        fontSize: 26,
-        fontWeight: "800",
-        color: "#ffffff"
+    bannerBack: {
+        position: 'absolute', top: 14, left: 14,
+        backgroundColor: 'rgba(0,0,0,0.35)', padding: 8, borderRadius: 12,
     },
-
-    bannerSub: {
-        marginTop: 4,
-        fontSize: 14,
-        color: "#f1f5f9",
-        fontWeight: "600"
-    },
+    bannerTitle: { fontSize: 26, fontWeight: "800", color: "#ffffff", marginTop: 8 },
+    bannerSub: { marginTop: 4, fontSize: 14, color: "#f1f5f9", fontWeight: "600" },
 
     searchWrapper: {
-        marginTop: 12,
-        marginHorizontal: 16,
-        backgroundColor: "#ffffff",
-        borderRadius: 20,
-        paddingHorizontal: 16,
-        height: 46,
-        justifyContent: "center",
-
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-        elevation: 10
+        marginTop: 14, marginHorizontal: 16,
+        borderRadius: 20, paddingHorizontal: 16, height: 48,
+        justifyContent: "center", flexDirection: 'row', alignItems: 'center',
+        borderWidth: 1.5,
+        shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12, shadowRadius: 10, elevation: 6,
     },
+    searchInput: { flex: 1, fontSize: 14 },
 
-    searchInput: {
-        fontSize: 14,
-        color: "#111827"
-    },
+    sectionHeader: { marginTop: 18, marginBottom: 14, alignItems: "center" },
+    sectionTitle: { fontSize: 20, fontWeight: "800" },
+    sectionLine: { width: 40, height: 2.5, borderRadius: 2, marginVertical: 6 },
+    sectionSub: { fontSize: 13 },
 
-    sectionHeader: {
-        marginTop: 18,
-        marginBottom: 18,
-        alignItems: "center"
-    },
-
-    sectionTitle: {
-        fontSize: 20,
-        fontWeight: "800",
-        color: "#5a4a42"
-    },
-
-    sectionLineRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        width: "70%",
-        marginVertical: 6
-    },
-
-    sectionLine: {
-        width: "35%",
-        height: 1,
-        backgroundColor: "#e7d6c9"
-    },
-
-    sectionSub: {
-        fontSize: 13,
-        color: "#8b7a70"
-    },
-
-    container: {
-        paddingHorizontal: 10,
-        paddingBottom: 90
-    },
-
+    container: { paddingHorizontal: 10, paddingBottom: 100 },
     card: {
-        width: IMAGE_WIDTH,
-        margin: 6,
-        backgroundColor: "#ffffff",
-        borderRadius: 18,
-        overflow: "hidden",
-
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-        elevation: 6
+        width: IMAGE_WIDTH, margin: 6, borderRadius: 18, overflow: "hidden", borderWidth: 1,
+        shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 6,
     },
-
-    image: {
-        width: "100%",
-        height: 110
-    },
-
-    cardTitle: {
-        paddingVertical: 10,
-        textAlign: "center",
-        fontSize: 14,
-        fontWeight: "700",
-        color: "#1f2937"
-    }
-
+    image: { width: "100%", height: 110 },
+    cardTitle: { paddingVertical: 10, textAlign: "center", fontSize: 13, fontWeight: "700" },
 });

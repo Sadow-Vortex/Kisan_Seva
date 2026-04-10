@@ -1,385 +1,207 @@
 import React, { useEffect, useState } from 'react';
 import {
-    View,
-    Text,
-    TextInput,
-    Alert,
-    ScrollView,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    TouchableOpacity,
-    Image
+    View, Text, TextInput, Alert, ScrollView,
+    KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, Image, StatusBar
 } from 'react-native';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import Footer from './Footer';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from './Themecontext';
 
 export default function EditProfile() {
-
     const navigation = useNavigation();
     const { userId } = useLocalSearchParams();
+    const { theme: T, isDark } = useTheme();
 
-    const [userData, setUserData] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [userData, setUserData]       = useState(null);
+    const [loading, setLoading]         = useState(true);
+    const [focusedField, setFocusedField] = useState(null);
 
     const API_BASE_URL = 'https://kisan-seva-user.onrender.com';
 
-    useEffect(() => {
-        if (userId) {
-            fetchUserDetails();
-        } else {
-            console.log("NA");
-        }
-    }, [userId]);
+    useEffect(() => { if (userId) fetchUserDetails(); }, [userId]);
 
     const fetchUserDetails = async () => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/users/${userId}`);
-            const result = await response.json();
-
-            if (result.status_code === 200 && result.data) {
-                setUserData(result.data);
-            } else {
-                setUserData(null);
-            }
-        } catch (error) {
-            console.error('Fetch error:', error);
-            Alert.alert('Error', 'Failed to load user data.');
-        } finally {
-            setLoading(false);
-        }
+            const res    = await fetch(`${API_BASE_URL}/api/users/${userId}`);
+            const result = await res.json();
+            if (result.status_code === 200 && result.data) setUserData(result.data);
+            else setUserData(null);
+        } catch { Alert.alert('Error', 'Failed to load user data.'); }
+        finally { setLoading(false); }
     };
 
     const handleUpdate = async () => {
         try {
             const payload = {
-                name: userData.name,
-                email: userData.email,
-                password: userData.password,
-                number: userData.number,
-                profileImage: userData.profileImage,
-                backImage: userData.backImage,
+                name: userData.name, email: userData.email,
+                password: userData.password, number: userData.number,
+                profileImage: userData.profileImage, backImage: userData.backImage,
             };
-
-            console.log("Payload:", payload);
-
-            const response = await fetch(`${API_BASE_URL}/api/users/update/${userId}`, {
+            const res    = await fetch(`${API_BASE_URL}/api/users/update/${userId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
-
-            const text = await response.text(); // 🔥 important
-            console.log("RAW RESPONSE:", text);
-
-            const result = JSON.parse(text);
-
-            if (result.status_code === 200) {
-                Alert.alert('Success', 'Profile updated successfully.');
-                navigation.goBack();
-            } else {
-                Alert.alert('Error', text); // show REAL error
-            }
-
-        } catch (error) {
-            console.error("Update error:", error);
-            Alert.alert('Error', error.message);
-        }
+            const result = JSON.parse(await res.text());
+            if (result.status_code === 200) { Alert.alert('Success', 'Profile updated.'); navigation.goBack(); }
+            else Alert.alert('Error', JSON.stringify(result));
+        } catch (error) { Alert.alert('Error', error.message); }
     };
 
-    if (loading) return <Text style={{ marginTop: 40, textAlign: 'center' }}>Loading...</Text>;
-    if (!userData) return <Text>User data not found or empty</Text>;
+    if (loading) return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: T.bg }}>
+            <Text style={{ color: T.textSub }}>Loading…</Text>
+        </View>
+    );
+    if (!userData) return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: T.bg }}>
+            <Text style={{ color: T.textSub }}>User data not found</Text>
+        </View>
+    );
+
+    const fields = [
+        { key: 'name',     label: 'Full Name',     icon: 'person-outline',      keyboard: 'default',       secure: false },
+        { key: 'email',    label: 'Email Address',  icon: 'mail-outline',         keyboard: 'email-address', secure: false },
+        { key: 'password', label: 'Password',       icon: 'lock-closed-outline',  keyboard: 'default',       secure: true  },
+        { key: 'number',   label: 'Phone Number',   icon: 'call-outline',         keyboard: 'phone-pad',     secure: false },
+    ];
 
     return (
-        <View style={styles.root}>
+        <View style={[styles.root, { backgroundColor: T.bg }]}>
+            <StatusBar barStyle={T.statusBar} />
+            {isDark && <View style={styles.bgLayer2} />}
 
-            <KeyboardAvoidingView
-                style={{ flex: 1 }}
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                keyboardVerticalOffset={80}
-            >
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={80}>
+                <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
 
-                <ScrollView
-                    contentContainerStyle={styles.scrollContainer}
-                    showsVerticalScrollIndicator={false}
-                >
-
-                    {/* ---------- HEADER ---------- */}
-                    <View style={styles.topBar}>
-                        <View style={styles.logoRow}>
-                            <Image
-                                source={require('../assets/images/Logo.png')}
-                                style={styles.logo}
-                            />
-                            <Text style={styles.brandText}>Kisan Seva</Text>
-                        </View>
+                    {/* Header */}
+                    <View style={[styles.header, { backgroundColor: T.card, borderBottomColor: T.divider }]}>
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: T.inputBg }]}>
+                            <Ionicons name="arrow-back" size={22} color={T.text} />
+                        </TouchableOpacity>
+                        <Text style={[styles.headerTitle, { color: T.text }]}>Edit Profile</Text>
+                        <View style={{ width: 40 }} />
                     </View>
 
-                    {/* ---------- COVER + PROFILE ---------- */}
-                    <View style={styles.headerCard}>
-
+                    {/* Profile card */}
+                    <View style={[styles.profileCard, { backgroundColor: T.card, borderColor: T.cardBorder }]}>
                         {userData.backImage ? (
-                            <Image
-                                source={{ uri: `${API_BASE_URL}/uploads/${userData.backImage}` }}
-                                style={styles.coverImage}
-                            />
+                            <Image source={{ uri: `${API_BASE_URL}/uploads/${userData.backImage}` }} style={styles.coverImage} />
                         ) : (
-                            <View style={styles.coverPlaceholder} />
+                            <View style={[styles.coverPlaceholder, { backgroundColor: isDark ? '#0d2040' : '#d1fae5', overflow: 'hidden' }]}>
+                                <View style={[styles.coverDeco, { backgroundColor: isDark ? 'rgba(46,196,130,0.15)' : 'rgba(22,163,74,0.12)' }]} />
+                            </View>
                         )}
-
-                        <View style={styles.profileWrapper}>
+                        <View style={[styles.avatarWrap, { borderColor: T.bg, backgroundColor: T.inputBg }]}>
                             {userData.profileImage ? (
-                                <Image
-                                    source={{ uri: `${API_BASE_URL}/uploads/${userData.profileImage}` }}
-                                    style={styles.profileImage}
-                                />
+                                <Image source={{ uri: `${API_BASE_URL}/uploads/${userData.profileImage}` }} style={styles.avatar} />
                             ) : (
-                                <View style={styles.profilePlaceholder}>
-                                    <Ionicons name="person" size={40} color="#9ca3af" />
+                                <View style={[styles.avatarPlaceholder, { backgroundColor: T.inputBg }]}>
+                                    <Ionicons name="person" size={36} color={T.textMuted} />
                                 </View>
                             )}
                         </View>
-
-                        <Text style={styles.profileName}>
-                            {userData.name || 'Your Name'}
+                        <Text style={[styles.profileName, { color: T.text }]}>{userData.name || 'Your Name'}</Text>
+                        <Text style={[styles.profileHandle, { color: T.textMuted }]}>
+                            @{(userData.name || 'user').toLowerCase().replace(' ', '')}
                         </Text>
-
-                        <Text style={styles.profileUsername}>
-                            @{userData.name || 'user'}
-                        </Text>
-
                     </View>
 
-                    {/* ---------- FORM CARD ---------- */}
-                    <View style={styles.formCard}>
-
-                        {/* Name */}
-                        <View style={styles.inputRow}>
-                            <Ionicons name="person-outline" size={20} color="#6b7f3f" />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Name"
-                                value={userData.name || ''}
-                                onChangeText={(text) =>
-                                    setUserData({ ...userData, name: text })
-                                }
-                            />
-                        </View>
-
-                        {/* Email */}
-                        <View style={styles.inputRow}>
-                            <Ionicons name="mail-outline" size={20} color="#6b7f3f" />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Email"
-                                keyboardType="email-address"
-                                value={userData.email || ''}
-                                onChangeText={(text) =>
-                                    setUserData({ ...userData, email: text })
-                                }
-                            />
-                        </View>
-
-                        {/* Password */}
-                        <View style={styles.inputRow}>
-                            <Ionicons name="lock-closed-outline" size={20} color="#6b7f3f" />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Password"
-                                secureTextEntry
-                                value={userData.password || ''}
-                                onChangeText={(text) =>
-                                    setUserData({ ...userData, password: text })
-                                }
-                            />
-                        </View>
-
-                        {/* Phone */}
-                        <View style={styles.inputRow}>
-                            <Ionicons name="call-outline" size={20} color="#6b7f3f" />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Phone number"
-                                keyboardType="phone-pad"
-                                value={userData.number || ''}
-                                onChangeText={(text) =>
-                                    setUserData({ ...userData, number: text })
-                                }
-                            />
-                        </View>
+                    {/* Form */}
+                    <View style={[styles.formCard, { backgroundColor: T.card, borderColor: T.cardBorder }]}>
+                        <Text style={[styles.formTitle, { color: T.text }]}>Personal Information</Text>
+                        {fields.map(f => (
+                            <View key={f.key} style={{ marginBottom: 14 }}>
+                                <Text style={[styles.label, { color: T.textSub }]}>{f.label}</Text>
+                                <View style={[
+                                    styles.inputRow,
+                                    { backgroundColor: T.inputBg, borderColor: focusedField === f.key ? T.accent : T.inputBorder },
+                                    focusedField === f.key && { backgroundColor: T.inputFocusBg },
+                                ]}>
+                                    <Ionicons name={f.icon} size={18} color={focusedField === f.key ? T.accent : T.textMuted} />
+                                    <TextInput
+                                        style={[styles.input, { color: T.text }]}
+                                        placeholder={f.label}
+                                        placeholderTextColor={T.placeholder}
+                                        value={userData[f.key] || ''}
+                                        onChangeText={(text) => setUserData({ ...userData, [f.key]: text })}
+                                        keyboardType={f.keyboard}
+                                        secureTextEntry={f.secure}
+                                        onFocus={() => setFocusedField(f.key)}
+                                        onBlur={() => setFocusedField(null)}
+                                    />
+                                </View>
+                            </View>
+                        ))}
 
                         <TouchableOpacity
-                            style={styles.updateButton}
+                            style={[styles.updateButton, { backgroundColor: T.accent, shadowColor: T.accent }]}
                             onPress={handleUpdate}
+                            activeOpacity={0.85}
                         >
-                            <Text style={styles.updateText}>
-                                Update Profile
-                            </Text>
+                            <Ionicons name="checkmark-circle" size={20} color={T.accentBtn} />
+                            <Text style={[styles.updateText, { color: T.accentBtn }]}>Update Profile</Text>
                         </TouchableOpacity>
-
                     </View>
 
                 </ScrollView>
-
             </KeyboardAvoidingView>
-
             <Footer />
-
         </View>
     );
 }
 
-export const options = {
-    headerShown: false,
-};
-
 const styles = StyleSheet.create({
-
-    root: {
-        flex: 1,
-        backgroundColor: '#FCEFE4'
+    root: { flex: 1 },
+    bgLayer2: {
+        position: 'absolute', top: 0, left: 0, right: 0, height: 220,
+        backgroundColor: '#0d1f3a', borderBottomLeftRadius: 50, borderBottomRightRadius: 50,
     },
+    scrollContainer: { paddingBottom: 120 },
 
-    scrollContainer: {
-        paddingBottom: 120
+    header: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        paddingTop: 52, paddingBottom: 14, paddingHorizontal: 16, borderBottomWidth: 1,
     },
+    backBtn: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+    headerTitle: { fontSize: 18, fontWeight: '800' },
 
-    topBar: {
-        paddingTop: 50,
-        paddingHorizontal: 18
+    profileCard: {
+        marginTop: 16, marginHorizontal: 16, borderRadius: 24, overflow: 'hidden',
+        alignItems: 'center', paddingBottom: 20, borderWidth: 1,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12, elevation: 8,
     },
+    coverImage: { width: '100%', height: 130 },
+    coverPlaceholder: { width: '100%', height: 130 },
+    coverDeco: { position: 'absolute', width: 250, height: 250, borderRadius: 125, top: -80, right: -60 },
 
-    logoRow: {
-        flexDirection: 'row',
-        alignItems: 'center'
+    avatarWrap: {
+        marginTop: -44, width: 88, height: 88, borderRadius: 44,
+        borderWidth: 4, overflow: 'hidden',
+        shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 8,
     },
-
-    logo: {
-        width: 38,
-        height: 38,
-        borderRadius: 19,
-        marginRight: 10
-    },
-
-    brandText: {
-        fontSize: 22,
-        fontWeight: '800',
-        color: '#3f5f2a'
-    },
-
-    headerCard: {
-        marginTop: 14,
-        marginHorizontal: 16,
-        backgroundColor: '#ffffff',
-        borderRadius: 22,
-        overflow: 'hidden',
-        alignItems: 'center',
-        paddingBottom: 18,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.15,
-        shadowRadius: 14,
-        elevation: 10
-    },
-
-    coverImage: {
-        width: '100%',
-        height: 140
-    },
-
-    coverPlaceholder: {
-        width: '100%',
-        height: 140,
-        backgroundColor: '#e5e7eb'
-    },
-
-    profileWrapper: {
-        marginTop: -40,
-        width: 86,
-        height: 86,
-        borderRadius: 43,
-        borderWidth: 4,
-        borderColor: '#ffffff',
-        overflow: 'hidden',
-        backgroundColor: '#ffffff',
-        justifyContent: 'center',
-        alignItems: 'center'
-    },
-
-    profileImage: {
-        width: 80,
-        height: 80,
-        borderRadius: 40
-    },
-
-    profilePlaceholder: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#f3f4f6'
-    },
-
-    profileName: {
-        marginTop: 10,
-        fontSize: 18,
-        fontWeight: '800',
-        color: '#1f2937'
-    },
-
-    profileUsername: {
-        marginTop: 2,
-        fontSize: 13,
-        color: '#6b7280'
-    },
+    avatar: { width: '100%', height: '100%' },
+    avatarPlaceholder: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
+    profileName: { marginTop: 10, fontSize: 18, fontWeight: '800' },
+    profileHandle: { marginTop: 2, fontSize: 13 },
 
     formCard: {
-        marginTop: 18,
-        marginHorizontal: 16,
-        backgroundColor: '#ffffff',
-        borderRadius: 22,
-        padding: 16,
-
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.12,
-        shadowRadius: 12,
-        elevation: 8
+        marginTop: 16, marginHorizontal: 16, borderRadius: 24, padding: 20, borderWidth: 1,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 6,
     },
-
+    formTitle: { fontSize: 15, fontWeight: '800', marginBottom: 18 },
+    label: { fontSize: 12, fontWeight: '600', marginBottom: 6, marginLeft: 2 },
     inputRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#f9fafb',
-        borderRadius: 14,
-        paddingHorizontal: 14,
-        height: 48,
-        marginBottom: 14
+        flexDirection: 'row', alignItems: 'center', gap: 10,
+        borderRadius: 14, paddingHorizontal: 14, height: 50, borderWidth: 1.5,
     },
-
-    input: {
-        flex: 1,
-        marginLeft: 10,
-        fontSize: 14,
-        color: '#111827'
-    },
+    input: { flex: 1, fontSize: 14, fontWeight: '500' },
 
     updateButton: {
-        marginTop: 8,
-        backgroundColor: '#6b7f3f',
-        height: 50,
-        borderRadius: 16,
-        justifyContent: 'center',
-        alignItems: 'center'
+        marginTop: 8, flexDirection: 'row', alignItems: 'center',
+        justifyContent: 'center', gap: 8, height: 52, borderRadius: 16,
+        shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 8,
     },
-
-    updateText: {
-        color: '#ffffff',
-        fontSize: 16,
-        fontWeight: '800',
-        letterSpacing: 0.3
-    }
-
+    updateText: { fontSize: 16, fontWeight: '800' },
 });
