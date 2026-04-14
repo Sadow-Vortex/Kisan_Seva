@@ -10,9 +10,12 @@ import Footer from "./Footer";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { useTheme } from "./Themecontext";
+import ScreenHeader from "./Screenheader";
 
 const { width, height } = Dimensions.get("window");
 const CARD_WIDTH = width / 2 - 20;
+const EXPANDED_H  = 200;
+const COLLAPSED_H = 90;
 
 export default function FreshAd() {
     const navigation = useNavigation();
@@ -25,24 +28,14 @@ export default function FreshAd() {
     const [selectedAd, setSelectedAd] = useState(null);
     const [modalVisible, setModalVisible] = useState(false);
 
-    const orb1Y = useRef(new Animated.Value(0)).current;
-    const orb2X = useRef(new Animated.Value(0)).current;
+    const scrollY = useRef(new Animated.Value(0)).current;
 
     const url     = "https://advertisment-jfil.onrender.com";
     const userUrl = "https://kisan-seva-user.onrender.com";
 
     useLayoutEffect(() => { navigation.setOptions({ headerShown: false }); }, []);
 
-    useEffect(() => {
-        fetchFreshAds(); fetchUsers();
-        const floatOrb = (anim, dur, range) =>
-            Animated.loop(Animated.sequence([
-                Animated.timing(anim, { toValue: range,  duration: dur, useNativeDriver: true }),
-                Animated.timing(anim, { toValue: -range, duration: dur, useNativeDriver: true }),
-            ])).start();
-        floatOrb(orb1Y, 3200, 18);
-        floatOrb(orb2X, 2700, 14);
-    }, []);
+    useEffect(() => { fetchFreshAds(); fetchUsers(); }, []);
 
     const fetchFreshAds = async () => {
         try {
@@ -58,32 +51,55 @@ export default function FreshAd() {
         try {
             const response = await axios.get(`${userUrl}/api/users`);
             setUsers(Array.isArray(response.data.data) ? response.data.data : []);
-        } catch { console.log("Failed to fetch users"); }
+        } catch { }
     };
 
     const onRefresh = useCallback(() => { setRefreshing(true); fetchFreshAds(); }, []);
 
     const openModal = async (ad) => {
         try {
+            if (users.length === 0) {
+                await fetchUsers();   // ✅ ensure users exist
+            }
+
             const storedUser = await AsyncStorage.getItem('user');
             const viewerId   = storedUser ? JSON.parse(storedUser)?.id : null;
-            if (!viewerId) { Alert.alert("Login Error", "Please log in to view this ad."); return; }
-            const response   = await axios.get(`${url}/adv/${ad.adv_id}?viewerId=${viewerId}`);
-            const updatedAd  = response.data?.data;
-            let farmer = users.find(u => u.id === updatedAd.advUserID);
-            if (!farmer) {
-                try { const ur = await axios.get(`${userUrl}/api/users/${updatedAd.advUserID}`); farmer = ur.data?.data; } catch {}
+
+            if (!viewerId) {
+                Alert.alert("Login Error", "Please log in to view this ad.");
+                return;
             }
-            setSelectedAd({ ...updatedAd, farmer, adv_ImageLink: updatedAd.adv_Image ? `${url}/uploads/${updatedAd.adv_Image}` : null });
+
+            const response  = await axios.get(`${url}/adv/${ad.adv_id}?viewerId=${viewerId}`);
+            const updatedAd = response.data?.data;
+
+            let farmer = users.find(u => u.id === updatedAd.advUserID);
+
+            if (!farmer) {
+                try {
+                    const ur = await axios.get(`${userUrl}/api/users/${updatedAd.advUserID}`);
+                    farmer = ur.data?.data;
+                } catch {}
+            }
+
+            setSelectedAd({
+                ...updatedAd,
+                farmer,
+                adv_ImageLink: updatedAd.adv_Image
+                    ? `${url}/uploads/${updatedAd.adv_Image}`
+                    : null
+            });
+
             setModalVisible(true);
-        } catch { Alert.alert("Error", "Failed to load ad. Try again."); }
+
+        } catch {
+            Alert.alert("Error", "Failed to load ad. Try again.");
+        }
     };
 
-    const closeModal = () => { setModalVisible(false); setSelectedAd(null); };
-    const openDialer = (number) => { if (number) Linking.openURL(`tel:${number}`); };
-    const openMap = (lat, lng) => {
-        if (lat && lng) Linking.openURL(`https://www.google.com/maps?q=${lat},${lng}`);
-    };
+    const closeModal  = () => { setModalVisible(false); setSelectedAd(null); };
+    const openDialer  = (number) => { if (number) Linking.openURL(`tel:${number}`); };
+    const openMap     = (lat, lng) => { if (lat && lng) Linking.openURL(`https://www.google.com/maps?q=${lat},${lng}`); };
 
     const renderItem = ({ item }) => {
         const imageUrl = item.adv_Image?.length ? `${url}/uploads/${item.adv_Image}` : null;
@@ -100,12 +116,14 @@ export default function FreshAd() {
                         <Ionicons name="image-outline" size={34} color={T.textMuted} />
                     </View>
                 )}
-                <View style={[styles.badgeWrap, { backgroundColor: T.newBadge }]}>
-                    <Text style={[styles.badgeText, { color: T.accentBtn }]}>NEW</Text>
+                {/* NEW badge */}
+                <View style={styles.newBadge}>
+                    <View style={styles.newBadgeDot} />
+                    <Text style={styles.newBadgeText}>NEW</Text>
                 </View>
                 <View style={styles.cardBody}>
                     <Text numberOfLines={1} style={[styles.title, { color: T.text }]}>{item.adv_Title}</Text>
-                    <Text style={[styles.price, { color: T.accent }]}>₹{item.adv_Price}</Text>
+                    <Text style={[styles.price, { color: '#059669' }]}>₹{item.adv_Price}</Text>
                 </View>
             </TouchableOpacity>
         );
@@ -113,118 +131,261 @@ export default function FreshAd() {
 
     if (loading) return (
         <View style={[styles.loader, { backgroundColor: T.bg }]}>
-            <ActivityIndicator size="large" color={T.accent} />
+            <ActivityIndicator size="large" color="#34d399" />
         </View>
     );
 
     return (
         <View style={[styles.container, { backgroundColor: T.bg }]}>
-            <StatusBar barStyle={T.statusBar} />
+            <StatusBar barStyle="light-content" />
 
-            {isDark && (
-                <>
-                    <View style={styles.bgLayer2} />
-                    <Animated.View style={[styles.orb1, { backgroundColor: T.orb1, transform: [{ translateY: orb1Y }] }]} />
-                    <Animated.View style={[styles.orb2, { backgroundColor: T.orb2, transform: [{ translateX: orb2X }] }]} />
-                </>
-            )}
+            {/* ── Next-gen Header ── */}
+            <ScreenHeader
+                screen="FreshAd"
+                scrollY={scrollY}
+                logo
+                badge={{ value: ads.length, label: 'fresh ads today' }}
+                EXPANDED_H={EXPANDED_H}
+                COLLAPSED_H={COLLAPSED_H}
+            />
 
-            {/* Header */}
-            <View style={styles.header}>
-                <View style={styles.logoRow}>
-                    <View style={[styles.logoGlow, { backgroundColor: isDark ? 'rgba(46,196,130,0.12)' : '#dcfce7' }]}>
-                        <View style={[styles.logoRing, { borderColor: isDark ? 'rgba(46,196,130,0.4)' : '#86efac' }]}>
-                            <Image source={require("../assets/images/Logo.png")} style={styles.logo} />
-                        </View>
-                    </View>
-                    <View>
-                        <Text style={[styles.brand, { color: T.accent }]}>Kisan Seva</Text>
-                        <Text style={[styles.brandSub, { color: T.textSub }]}>Farm · Connect · Grow</Text>
-                    </View>
-                </View>
-                <Text style={[styles.pageTitle, { color: T.text }]}>Fresh Ads</Text>
-                <View style={[styles.titleUnderline, { backgroundColor: T.accent }]} />
-                <Text style={[styles.pageSub, { color: T.textSub }]}>Latest ads from farmers</Text>
-            </View>
-
-            <FlatList
+            <Animated.FlatList
                 data={ads}
                 keyExtractor={(item) => item.adv_id.toString()}
                 renderItem={renderItem}
                 numColumns={2}
-                contentContainerStyle={styles.list}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[T.accent]} />}
+                contentContainerStyle={[styles.list, { paddingTop: 14 }]}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#34d399"]} tintColor="#34d399" />}
+                onScroll={Animated.event(
+                    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                    { useNativeDriver: false }
+                )}
+                scrollEventThrottle={16}
+                showsVerticalScrollIndicator={false}
             />
 
-            {/* Modal */}
-            <Modal visible={modalVisible} transparent animationType="slide">
+            {/* ── Ad Detail Modal ── */}
+            <Modal
+                visible={modalVisible}
+                transparent
+                animationType="slide"
+                statusBarTranslucent
+            >
                 <View style={styles.modalBackground}>
-                    <View style={[styles.modalSheet, { backgroundColor: T.modal, borderColor: T.modalBorder }]}>
+
+                    {/* ✅ Tap outside to close */}
+                    <TouchableOpacity
+                        style={{ flex: 1 }}
+                        activeOpacity={1}
+                        onPress={closeModal}
+                    />
+
+                    <View style={[
+                        styles.modalSheet,
+                        { backgroundColor: T.modal, borderColor: T.modalBorder }
+                    ]}>
+
                         {selectedAd && (
                             <>
-                                <View style={[styles.modalHandle, { backgroundColor: T.divider }]} />
-                                <TouchableOpacity onPress={closeModal} style={styles.closeBtn}>
-                                    <View style={[styles.closeBtnInner, { backgroundColor: T.inputBg }]}>
+                                {/* Handle */}
+                                <View style={[
+                                    styles.modalHandle,
+                                    { backgroundColor: T.divider }
+                                ]} />
+
+                                {/* Close Button */}
+                                <TouchableOpacity
+                                    onPress={closeModal}
+                                    style={styles.closeBtn}
+                                >
+                                    <View style={[
+                                        styles.closeBtnInner,
+                                        { backgroundColor: T.inputBg }
+                                    ]}>
                                         <Ionicons name="close" size={20} color={T.text} />
                                     </View>
                                 </TouchableOpacity>
 
-                                <ScrollView showsVerticalScrollIndicator={false}>
+                                <ScrollView
+                                    showsVerticalScrollIndicator={false}
+                                    bounces={false}
+                                >
+                                    {/* Image */}
                                     <View style={styles.modalImageWrap}>
                                         {selectedAd.adv_ImageLink ? (
-                                            <Image source={{ uri: selectedAd.adv_ImageLink }} style={styles.modalImage} />
+                                            <Image
+                                                source={{ uri: selectedAd.adv_ImageLink }}
+                                                style={styles.modalImage}
+                                            />
                                         ) : (
-                                            <View style={[styles.modalNoImage, { backgroundColor: T.inputBg }]}>
-                                                <Ionicons name="image-outline" size={40} color={T.textMuted} />
+                                            <View style={[
+                                                styles.modalNoImage,
+                                                { backgroundColor: T.inputBg }
+                                            ]}>
+                                                <Ionicons
+                                                    name="image-outline"
+                                                    size={40}
+                                                    color={T.textMuted}
+                                                />
                                             </View>
                                         )}
+
+                                        {/* Views */}
                                         <View style={styles.viewCountOverlay}>
                                             <Ionicons name="eye" size={14} color="#fff" />
-                                            <Text style={styles.viewCountText}>{selectedAd.count || 0}</Text>
+                                            <Text style={styles.viewCountText}>
+                                                {selectedAd.count || 0} views
+                                            </Text>
                                         </View>
                                     </View>
 
+                                    {/* Body */}
                                     <View style={styles.modalBody}>
-                                        <Text style={[styles.modalTitle, { color: T.text }]}>{selectedAd.adv_Title}</Text>
-                                        <Text style={[styles.modalPrice, { color: T.accent }]}>₹{selectedAd.adv_Price}</Text>
+                                        <Text style={[
+                                            styles.modalTitle,
+                                            { color: T.text }
+                                        ]}>
+                                            {selectedAd.adv_Title}
+                                        </Text>
+
+                                        <Text style={[
+                                            styles.modalPrice,
+                                            { color: '#059669' }
+                                        ]}>
+                                            ₹{selectedAd.adv_Price}
+                                        </Text>
+
+                                        {/* Location */}
                                         <View style={styles.modalLocationRow}>
-                                            <Ionicons name="location" size={16} color={T.accent} />
-                                            <Text style={[styles.modalLocation, { color: T.textSub }]}>{selectedAd.adv_Address}</Text>
+                                            <Ionicons
+                                                name="location"
+                                                size={16}
+                                                color="#059669"
+                                            />
+                                            <Text style={[
+                                                styles.modalLocation,
+                                                { color: T.textSub }
+                                            ]}>
+                                                {selectedAd.adv_Address || "No location"}
+                                            </Text>
                                         </View>
-                                        <Text style={[styles.modalDesc, { color: T.textSub }]}>
+
+                                        {/* Description */}
+                                        <Text style={[
+                                            styles.modalDesc,
+                                            { color: T.textSub }
+                                        ]}>
                                             {selectedAd.adv_Description || "No description provided."}
                                         </Text>
 
-                                        <View style={[styles.farmerCard, { backgroundColor: T.farmerCard, borderColor: T.farmerBorder }]}>
-                                            <Text style={[styles.farmerHeader, { color: T.farmerText }]}>Farmer Information</Text>
+                                        {/* Farmer */}
+                                        <View style={[
+                                            styles.farmerCard,
+                                            {
+                                                backgroundColor: T.farmerCard,
+                                                borderColor: T.farmerBorder
+                                            }
+                                        ]}>
+                                            <Text style={[
+                                                styles.farmerHeader,
+                                                { color: T.text }
+                                            ]}>
+                                                Farmer Information
+                                            </Text>
+
                                             <View style={styles.farmerRow}>
                                                 {selectedAd.farmer?.profileImage ? (
-                                                    <Image source={{ uri: `${userUrl}/uploads/${selectedAd.farmer.profileImage}` }} style={styles.farmerAvatar} />
+                                                    <Image
+                                                        source={{
+                                                            uri: `${userUrl}/uploads/${selectedAd.farmer.profileImage}`
+                                                        }}
+                                                        style={styles.farmerAvatar}
+                                                    />
                                                 ) : (
-                                                    <View style={[styles.farmerAvatarPlaceholder, { backgroundColor: T.inputBg }]}>
-                                                        <Ionicons name="person" size={26} color={T.textMuted} />
+                                                    <View style={[
+                                                        styles.farmerAvatarPlaceholder,
+                                                        { backgroundColor: T.inputBg }
+                                                    ]}>
+                                                        <Ionicons
+                                                            name="person"
+                                                            size={26}
+                                                            color={T.textMuted}
+                                                        />
                                                     </View>
                                                 )}
+
                                                 <View style={{ marginLeft: 12 }}>
-                                                    <Text style={[styles.farmerName, { color: T.text }]}>{selectedAd.farmer?.name || "Unknown"}</Text>
-                                                    <Text style={[styles.farmerSub, { color: T.accent }]}>✓ Verified farmer</Text>
+                                                    <Text style={[
+                                                        styles.farmerName,
+                                                        { color: T.text }
+                                                    ]}>
+                                                        {selectedAd.farmer?.name || "Unknown Farmer"}
+                                                    </Text>
+
+                                                    <Text style={[
+                                                        styles.farmerSub,
+                                                        { color: '#059669' }
+                                                    ]}>
+                                                        ✓ Verified farmer
+                                                    </Text>
                                                 </View>
                                             </View>
+
+                                            {/* Phone */}
+                                            {selectedAd.farmer?.number && (
+                                                <Text style={{
+                                                    marginTop: 10,
+                                                    color: T.textSub,
+                                                    fontWeight: '600'
+                                                }}>
+                                                    📞 {selectedAd.farmer.number}
+                                                </Text>
+                                            )}
                                         </View>
                                     </View>
                                 </ScrollView>
 
-                                <View style={[styles.actionRow, { borderTopColor: T.divider }]}>
-                                    {[
-                                        { icon: 'call',                label: 'Call',     bg: T.accent,        textColor: T.accentBtn, onPress: () => openDialer(selectedAd.farmer?.number) },
-                                        { icon: 'chatbubble-ellipses', label: 'Chat',     bg: T.inputBg,       textColor: T.text,      onPress: () => Alert.alert("Chat", "Coming soon.") },
-                                        { icon: 'navigate',            label: 'Navigate', bg: T.inputBg,       textColor: T.text,      onPress: () => openMap(selectedAd.adv_Location?.latitude, selectedAd.adv_Location?.longitude) },
-                                    ].map(btn => (
-                                        <TouchableOpacity key={btn.label} style={[styles.actionBtn, { backgroundColor: btn.bg }]} onPress={btn.onPress}>
-                                            <Ionicons name={btn.icon} size={18} color={btn.textColor} />
-                                            <Text style={[styles.actionText, { color: btn.textColor }]}>{btn.label}</Text>
-                                        </TouchableOpacity>
-                                    ))}
+                                {/* Actions */}
+                                <View style={[
+                                    styles.actionRow,
+                                    { borderTopColor: T.divider }
+                                ]}>
+
+                                    <TouchableOpacity
+                                        style={[styles.actionBtn, { backgroundColor: '#059669' }]}
+                                        onPress={() => openDialer(selectedAd.farmer?.number)}
+                                    >
+                                        <Ionicons name="call" size={18} color="#fff" />
+                                        <Text style={[styles.actionText, { color: '#fff' }]}>
+                                            Call
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={[styles.actionBtn, { backgroundColor: T.inputBg }]}
+                                        onPress={() => Alert.alert("Chat", "Coming soon.")}
+                                    >
+                                        <Ionicons name="chatbubble-ellipses" size={18} color={T.text} />
+                                        <Text style={[styles.actionText, { color: T.text }]}>
+                                            Chat
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={[styles.actionBtn, { backgroundColor: T.inputBg }]}
+                                        onPress={() =>
+                                            openMap(
+                                                selectedAd.adv_Location?.latitude,
+                                                selectedAd.adv_Location?.longitude
+                                            )
+                                        }
+                                    >
+                                        <Ionicons name="navigate" size={18} color={T.text} />
+                                        <Text style={[styles.actionText, { color: T.text }]}>
+                                            Navigate
+                                        </Text>
+                                    </TouchableOpacity>
+
                                 </View>
                             </>
                         )}
@@ -241,66 +402,45 @@ const styles = StyleSheet.create({
     container: { flex: 1 },
     loader: { flex: 1, justifyContent: "center", alignItems: "center" },
 
-    bgLayer2: {
-        position: 'absolute', top: 0, left: 0, right: 0, height: 260,
-        backgroundColor: '#0d1f3a', borderBottomLeftRadius: 60, borderBottomRightRadius: 60,
-    },
-    orb1: { position: 'absolute', width: 220, height: 220, borderRadius: 110, top: -60, right: -60 },
-    orb2: { position: 'absolute', width: 160, height: 160, borderRadius: 80, top: 200, left: -50 },
-
-    header: { paddingTop: 52, paddingBottom: 14, paddingHorizontal: 16 },
-    logoRow: { flexDirection: "row", alignItems: "center", marginBottom: 14 },
-    logoGlow: { width: 52, height: 52, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-    logoRing: { width: 44, height: 44, borderRadius: 13, borderWidth: 1.5, overflow: 'hidden', justifyContent: 'center', alignItems: 'center' },
-    logo: { width: 50, height: 50, resizeMode: 'cover' },
-    brand: { fontSize: 18, fontWeight: "900", letterSpacing: 1 },
-    brandSub: { fontSize: 11, fontWeight: "500", letterSpacing: 1.5 },
-    pageTitle: { fontSize: 30, fontWeight: "900", letterSpacing: 0.3 },
-    titleUnderline: { width: 40, height: 2.5, borderRadius: 2, marginTop: 6, marginBottom: 6 },
-    pageSub: { fontSize: 13, fontWeight: "500" },
-
-    list: { paddingHorizontal: 10, paddingBottom: 100, paddingTop: 10 },
+    list: { paddingHorizontal: 10, paddingBottom: 100 },
 
     card: {
         width: CARD_WIDTH, borderRadius: 20, margin: 6, overflow: "hidden",
         borderWidth: 1, elevation: 6,
         shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 10,
     },
-    image: { width: "100%", height: 130 },
-    noImageBox: { width: "100%", height: 130, justifyContent: "center", alignItems: "center" },
-    badgeWrap: { position: "absolute", top: 10, left: 10, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
-    badgeText: { fontSize: 10, fontWeight: "800" },
+    image: { width: "100%", height: 140 },
+    noImageBox: { width: "100%", height: 140, justifyContent: "center", alignItems: "center" },
+
+    newBadge: {
+        position: 'absolute', top: 10, left: 10,
+        flexDirection: 'row', alignItems: 'center', gap: 5,
+        backgroundColor: '#059669', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 10,
+    },
+    newBadgeDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#a7f3d0' },
+    newBadgeText: { fontSize: 10, fontWeight: '800', color: '#fff', letterSpacing: 0.5 },
+
     cardBody: { padding: 10 },
     title: { fontSize: 13, fontWeight: "800" },
     price: { marginTop: 4, fontSize: 15, fontWeight: "800" },
 
+    // Modal
     modalBackground: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
-    modalSheet: {
-        height: height * 0.86, borderTopLeftRadius: 28, borderTopRightRadius: 28,
-        overflow: "hidden", borderWidth: 1, borderBottomWidth: 0,
-    },
+    modalSheet: { height: height * 0.86, borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: "hidden", borderWidth: 1, borderBottomWidth: 0 },
     modalHandle: { width: 50, height: 4, borderRadius: 2, alignSelf: "center", marginTop: 10, marginBottom: 6 },
     closeBtn: { position: "absolute", right: 16, top: 10, zIndex: 10 },
     closeBtnInner: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
-
     modalImageWrap: { width: "100%", height: 220 },
     modalImage: { width: "100%", height: "100%" },
     modalNoImage: { flex: 1, justifyContent: "center", alignItems: "center" },
-    viewCountOverlay: {
-        position: "absolute", top: 12, left: 12,
-        backgroundColor: "rgba(0,0,0,0.6)",
-        flexDirection: "row", alignItems: "center",
-        paddingHorizontal: 8, paddingVertical: 4, borderRadius: 14,
-    },
+    viewCountOverlay: { position: "absolute", top: 12, left: 12, backgroundColor: "rgba(0,0,0,0.6)", flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 14 },
     viewCountText: { color: "#fff", marginLeft: 4, fontSize: 12, fontWeight: '600' },
-
     modalBody: { padding: 18 },
     modalTitle: { fontSize: 20, fontWeight: "900" },
     modalPrice: { marginTop: 4, fontSize: 19, fontWeight: "800" },
     modalLocationRow: { flexDirection: "row", alignItems: "center", marginTop: 8, gap: 6 },
     modalLocation: { fontSize: 13, flex: 1 },
     modalDesc: { marginTop: 10, fontSize: 14, lineHeight: 20 },
-
     farmerCard: { marginTop: 16, borderRadius: 16, padding: 14, borderWidth: 1 },
     farmerHeader: { fontWeight: "800", marginBottom: 10, fontSize: 13 },
     farmerRow: { flexDirection: "row", alignItems: "center" },
@@ -308,14 +448,7 @@ const styles = StyleSheet.create({
     farmerAvatarPlaceholder: { width: 52, height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center' },
     farmerName: { fontSize: 15, fontWeight: "800" },
     farmerSub: { fontSize: 12, fontWeight: '600', marginTop: 2 },
-
-    actionRow: {
-        flexDirection: "row", paddingHorizontal: 14, paddingBottom: 20, paddingTop: 12,
-        justifyContent: "space-between", gap: 10, borderTopWidth: 1,
-    },
-    actionBtn: {
-        flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
-        paddingVertical: 13, borderRadius: 16, gap: 6,
-    },
+    actionRow: { flexDirection: "row", paddingHorizontal: 14, paddingBottom: 20, paddingTop: 12, justifyContent: "space-between", gap: 10, borderTopWidth: 1 },
+    actionBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 13, borderRadius: 16, gap: 6 },
     actionText: { fontWeight: "800", fontSize: 13 },
 });
